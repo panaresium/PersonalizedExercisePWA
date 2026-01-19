@@ -152,9 +152,7 @@ export class SetEditorView {
          const cards = this.bulkBeepPicker.renderCards({
              onStart: this.bulkBeepConfig.onStart,
              onEnd: this.bulkBeepConfig.onEnd
-             // We only support Start/End bulk assign for simplicity now,
-             // but could add others if needed.
-         }).slice(0, 2); // Only Start/End
+         }, ['onStart', 'onEnd']);
 
          const modal = Modal({
              title: "Apply Beeps to All Steps",
@@ -234,7 +232,7 @@ export class SetEditorView {
     const setBeepCards = this.beepPicker.renderCards({
         onStart: setBeepConfig.onStart,
         onEnd: setBeepConfig.onEnd
-    }).slice(0, 2); // Only Start/End for Sets usually
+    }, ['onStart', 'onEnd']);
     setBeepCards.forEach(c => content.appendChild(c));
 
 

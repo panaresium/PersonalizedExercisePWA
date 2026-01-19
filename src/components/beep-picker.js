@@ -147,7 +147,7 @@ export class BeepPicker {
 
   // Helper to render standard beep config cards
   // config = { onStart: val, onEnd: val, interval: val, intervalSec: val, countdown: val, countdownFromSec: val }
-  renderCards(config) {
+  renderCards(config, cardTypes = ['onStart', 'onEnd', 'interval', 'countdown']) {
       const beeps = this.getBeeps();
       const beepOptions = [
         createElement('option', '', {value: ''}, "None"),
@@ -157,46 +157,51 @@ export class BeepPicker {
       const cards = [];
 
       // 1. On Start
-      cards.push(this.createCard(
-          "On Start",
-          "Plays when starting.",
-          [this.createBeepSelect("onStart", config.onStart, beepOptions)],
-          "onStart"
-      ));
+      if (cardTypes.includes('onStart')) {
+          cards.push(this.createCard(
+              "On Start",
+              "Plays when starting.",
+              [this.createBeepSelect("onStart", config.onStart, beepOptions)],
+              "onStart"
+          ));
+      }
 
       // 2. On End
-      cards.push(this.createCard(
-          "On End",
-          "Plays when finishing.",
-          [this.createBeepSelect("onEnd", config.onEnd, beepOptions)],
-          "onEnd"
-      ));
+      if (cardTypes.includes('onEnd')) {
+          cards.push(this.createCard(
+              "On End",
+              "Plays when finishing.",
+              [this.createBeepSelect("onEnd", config.onEnd, beepOptions)],
+              "onEnd"
+          ));
+      }
 
-      // 3. Interval (only if requested, we can make this optional)
-      // For sets, maybe we don't need Interval/Countdown? User said "All settings... features you think necessary"
-      // Let's include them but make them optional/contextual?
-      // For now, I'll return them all, parent can choose what to append.
-      // Actually, better to just render what is standard.
+      // 3. Interval
+      if (cardTypes.includes('interval')) {
+          const intervalSelectWrapper = this.createBeepSelect("interval", config.interval, beepOptions);
+          const intervalSecInput = createElement('input', 'form-input', {
+                type: 'number',
+                placeholder: 'Seconds (e.g. 10)',
+                value: config.intervalSec || '',
+                onChange: (e) => this.onChange('intervalSec', parseInt(e.target.value) || null),
+                style: 'margin-top: 8px;'
+          });
+          cards.push(this.createCard("Interval", "Plays repeatedly every N seconds.", [intervalSelectWrapper, intervalSecInput], "interval"));
+      }
 
-      const intervalSelectWrapper = this.createBeepSelect("interval", config.interval, beepOptions);
-      const intervalSecInput = createElement('input', 'form-input', {
-            type: 'number',
-            placeholder: 'Seconds (e.g. 10)',
-            value: config.intervalSec || '',
-            onChange: (e) => this.onChange('intervalSec', parseInt(e.target.value) || null),
-            style: 'margin-top: 8px;'
-      });
-      cards.push(this.createCard("Interval", "Plays repeatedly every N seconds.", [intervalSelectWrapper, intervalSecInput], "interval"));
 
-      const countdownSelectWrapper = this.createBeepSelect("countdown", config.countdown, beepOptions);
-      const countdownSecInput = createElement('input', 'form-input', {
-            type: 'number',
-            placeholder: 'Start from (e.g. 3)',
-            value: config.countdownFromSec || '',
-            onChange: (e) => this.onChange('countdownFromSec', parseInt(e.target.value) || null),
-            style: 'margin-top: 8px;'
-      });
-      cards.push(this.createCard("Countdown", "Plays during the final N seconds.", [countdownSelectWrapper, countdownSecInput], "countdown"));
+      // 4. Countdown
+      if (cardTypes.includes('countdown')) {
+          const countdownSelectWrapper = this.createBeepSelect("countdown", config.countdown, beepOptions);
+          const countdownSecInput = createElement('input', 'form-input', {
+                type: 'number',
+                placeholder: 'Start from (e.g. 3)',
+                value: config.countdownFromSec || '',
+                onChange: (e) => this.onChange('countdownFromSec', parseInt(e.target.value) || null),
+                style: 'margin-top: 8px;'
+          });
+          cards.push(this.createCard("Countdown", "Plays during the final N seconds.", [countdownSelectWrapper, countdownSecInput], "countdown"));
+      }
 
       return cards;
   }

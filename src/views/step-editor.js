@@ -159,7 +159,7 @@ export class StepEditorView {
         intervalSec: beepConfig.intervalSec,
         countdown: beepConfig.countdown,
         countdownFromSec: beepConfig.countdownFromSec
-    });
+    }, ['onStart', 'onEnd', 'interval', 'countdown']);
     cards.forEach(card => content.appendChild(card));
 
 

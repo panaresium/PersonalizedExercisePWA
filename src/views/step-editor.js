@@ -101,20 +101,20 @@ export class StepEditorView {
     // Details
     const nameInput = createElement('input', 'form-input', {
         value: this.step.name,
-        onInput: (e) => this.updateStep({ name: e.target.value }),
+        onChange: (e) => this.updateStep({ name: e.target.value }),
         placeholder: "Step Name"
     });
 
     const instructionsInput = createElement('textarea', 'form-textarea', {
         value: this.step.instructions || '',
-        onInput: (e) => this.updateStep({ instructions: e.target.value }),
+        onChange: (e) => this.updateStep({ instructions: e.target.value }),
         placeholder: "Instructions"
     });
 
     const durationInput = createElement('input', 'form-input', {
         type: 'number',
         value: this.step.durationSec,
-        onInput: (e) => this.updateStep({ durationSec: parseInt(e.target.value) || 0 }),
+        onChange: (e) => this.updateStep({ durationSec: parseInt(e.target.value) || 0 }),
         placeholder: "Duration (Seconds)"
     });
 
@@ -129,7 +129,12 @@ export class StepEditorView {
     ));
 
     // Beeps
-    content.appendChild(createElement('div', 'form-label', {}, "Beeps"));
+    const beepHeader = createElement('div', '', { style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;' },
+        createElement('div', 'form-label', { style: 'margin-bottom: 0;' }, "Beeps"),
+        createElement('button', 'nav-action', { style: 'font-size: 14px;', onClick: () => Router.navigate('/beeps') }, "Manage Beeps")
+    );
+    content.appendChild(beepHeader);
+
     const beeps = this.state.beepCodes || {};
     const beepOptions = [
         createElement('option', '', {value: ''}, "None"),

@@ -131,13 +131,13 @@ export class ProjectEditorView {
     // Metadata Form
     const nameInput = createElement('input', 'form-input', {
         value: this.project.name,
-        onInput: (e) => this.updateProject({ name: e.target.value }),
+        onChange: (e) => this.updateProject({ name: e.target.value }),
         placeholder: "Project Name"
     });
 
     const descInput = createElement('textarea', 'form-textarea', {
         value: this.project.description || '',
-        onInput: (e) => this.updateProject({ description: e.target.value }),
+        onChange: (e) => this.updateProject({ description: e.target.value }),
         placeholder: "Description"
     });
 

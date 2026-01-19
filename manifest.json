@@ -1,6 +1,6 @@
 {
-  "name": "Codex Exercise",
-  "short_name": "Codex",
+  "name": "Personalized Exercise",
+  "short_name": "Pers. Exercise",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#F2F2F7",

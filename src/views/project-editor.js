@@ -1,6 +1,6 @@
 import { getState, updateState, subscribe } from '../lib/state.js';
 import { Router } from '../lib/router.js';
-import { NavBar, ListGroup, ListItem, Button, createElement } from '../components/ui.js';
+import { NavBar, ListGroup, ListItem, Button, Modal, createElement } from '../components/ui.js';
 import { generateId } from '../lib/utils.js';
 import { createExportPackage } from '../lib/zip-manager.js';
 import { serializeProjectToXml } from '../lib/xml-parser.js';
@@ -12,6 +12,7 @@ export class ProjectEditorView {
     this.state = getState();
     this.project = this.state.projects[this.projectId];
     this.unsubscribe = null;
+    this.showDeleteModal = false;
   }
 
   onMount() {
@@ -55,14 +56,67 @@ export class ProjectEditorView {
   }
 
   deleteProject() {
-      if (!confirm("Delete this project?")) return;
+      this.showDeleteModal = true;
+      this.refresh();
+  }
+
+  confirmDelete() {
       updateState(state => {
           const newState = { ...state };
           delete newState.projects[this.projectId];
-          // Should cleanup sets/steps/media too, but keeping it simple for now
+          // Should cleanup sets/steps/media too
           return newState;
       });
       Router.navigate('/');
+  }
+
+  duplicateProject() {
+      const newProjectId = generateId();
+      updateState(state => {
+          const newState = { ...state };
+
+          // Deep clone project
+          const originalProject = newState.projects[this.projectId];
+          if (!originalProject) return newState; // Should not happen
+
+          const newProject = JSON.parse(JSON.stringify(originalProject));
+          newProject.id = newProjectId;
+          newProject.name = `Copy of ${newProject.name}`;
+          newProject.createdAt = new Date().toISOString();
+          newProject.exerciseSetIds = [];
+
+          newState.projects[newProjectId] = newProject;
+
+          // Clone sets and steps
+          (originalProject.exerciseSetIds || []).forEach(setId => {
+              const originalSet = newState.exerciseSets[setId];
+              if (!originalSet) return;
+
+              const newSetId = generateId();
+              const newSet = JSON.parse(JSON.stringify(originalSet));
+              newSet.id = newSetId;
+              newSet.stepIds = [];
+
+              newState.exerciseSets[newSetId] = newSet;
+              newProject.exerciseSetIds.push(newSetId);
+
+              // Clone steps
+              (originalSet.stepIds || []).forEach(stepId => {
+                  const originalStep = newState.exerciseSteps[stepId];
+                  if (!originalStep) return;
+
+                  const newStepId = generateId();
+                  const newStep = JSON.parse(JSON.stringify(originalStep));
+                  newStep.id = newStepId;
+
+                  newState.exerciseSteps[newStepId] = newStep;
+                  newSet.stepIds.push(newStepId);
+              });
+          });
+
+          return newState;
+      });
+      Router.navigate(`/project/${newProjectId}`);
   }
 
   async exportProject() {
@@ -172,6 +226,12 @@ export class ProjectEditorView {
     content.appendChild(createElement('br'));
 
     content.appendChild(Button({
+        label: "Duplicate Project",
+        onClick: () => this.duplicateProject(),
+        type: 'secondary'
+    }));
+
+    content.appendChild(Button({
         label: "Export Project (ZIP)",
         onClick: () => this.exportProject(),
         type: 'secondary'
@@ -187,5 +247,27 @@ export class ProjectEditorView {
 
     this.container.appendChild(header);
     this.container.appendChild(content);
+
+    if (this.showDeleteModal) {
+        const modal = Modal({
+            title: "Delete Project",
+            children: [
+                createElement('p', '', {}, "Are you sure you want to delete this project? This action cannot be undone.")
+            ],
+            onCancel: () => {
+                this.showDeleteModal = false;
+                this.refresh();
+            },
+            onConfirm: () => this.confirmDelete(),
+            confirmLabel: "Delete",
+            cancelLabel: "Cancel"
+        });
+        // Style the confirm button as destructive
+        const confirmBtn = modal.querySelector('.btn-primary');
+        if (confirmBtn) {
+            confirmBtn.className = confirmBtn.className.replace('btn-primary', 'btn-destructive');
+        }
+        this.container.appendChild(modal);
+    }
   }
 }

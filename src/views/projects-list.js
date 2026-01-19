@@ -121,11 +121,27 @@ export class ProjectsListView {
         Button({ label: "Create Sample", onClick: () => this.createSample(), type: 'secondary' })
       ));
     } else {
-      const listItems = projects.map(p => ListItem({
-        title: p.name,
-        subtitle: p.description,
-        onClick: () => Router.navigate(`/project/${p.id}`)
-      }));
+      const listItems = projects.map(p => {
+        let subtitle = p.description;
+        if (p.createdAt) {
+            try {
+                const dateStr = new Date(p.createdAt).toLocaleDateString();
+                subtitle = subtitle ? `${subtitle} • ${dateStr}` : dateStr;
+            } catch (e) {
+                // Ignore date error
+            }
+        }
+
+        return ListItem({
+          title: p.name,
+          subtitle: subtitle,
+          actionButton: {
+            label: '▶',
+            onClick: () => Router.navigate(`/player/${p.id}`)
+          },
+          onClick: () => Router.navigate(`/project/${p.id}`)
+        });
+      });
       content.appendChild(ListGroup(listItems));
     }
 

@@ -187,6 +187,40 @@ body {
   font-weight: bold;
 }
 
+/* List Action Button */
+.list-action-btn {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  font-size: 20px;
+  padding: 8px 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.list-action-btn:hover {
+  background-color: var(--color-accent-light);
+}
+
+.list-action-btn:active {
+  transform: scale(0.95);
+}
+
+/* Dark mode adjustment for hover */
+@media (prefers-color-scheme: dark) {
+  .list-action-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+}
+body.theme-dark .list-action-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
 /* Forms - BUBBLE STYLE */
 .form-group {
   margin-bottom: 24px;

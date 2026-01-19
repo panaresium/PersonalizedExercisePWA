@@ -362,7 +362,7 @@ export class PlayerView {
 
       // 3. Timer
       const remaining = item.type === 'REST' ? item.duration : item.step.durationSec;
-      const timerDiv = createElement('div', 'timer-display', { style: 'font-size: 80px; font-weight: bold; font-variant-numeric: tabular-nums;' }, formatTime(remaining));
+      const timerDiv = createElement('div', 'timer-display', { style: 'font-size: 80px; font-weight: bold; font-variant-numeric: tabular-nums; color: var(--color-text);' }, formatTime(remaining));
 
       // 4. Controls
       const controlsDiv = createElement('div', 'player-controls', { style: 'width: 100%; display: flex; gap: 10px; margin-bottom: 20px;' });

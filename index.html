@@ -2,34 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Personalized Exercise PWA</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>Codex</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="stylesheet" href="./styles.css" />
+    <!-- Preload critical modules -->
+    <link rel="modulepreload" href="./src/app.js">
   </head>
   <body>
-    <header class="app-header">
-      <h1>Personalized Exercise PWA</h1>
-      <p class="subtitle">Offline-first, local-only workout builder</p>
-    </header>
-    <main class="app-shell">
-      <section class="card">
-        <h2>Storage</h2>
-        <p id="storage-status">Checking local storage...</p>
-        <button id="create-sample">Create sample project</button>
-        <button id="export-sample" disabled>Export sample project</button>
-      </section>
-      <section class="card">
-        <h2>Beep Library</h2>
-        <p class="helper">Preview a beep pattern after starting audio.</p>
-        <button id="start-audio">Enable audio</button>
-        <ul id="beep-list" class="beep-list"></ul>
-      </section>
-      <section class="card">
-        <h2>Projects</h2>
-        <ul id="project-list" class="project-list"></ul>
-      </section>
-    </main>
-    <script type="module" src="./app.js"></script>
+    <div id="app"></div>
+    <script type="module" src="./src/app.js"></script>
   </body>
 </html>

@@ -23,6 +23,7 @@ export class PlayerView {
     this.wakeLock = null;
     this.mediaBlobUrl = null;
     this.sessionStart = null;
+    this.lastDisplayedTime = null;
   }
 
   buildPlaylist() {
@@ -170,8 +171,12 @@ export class PlayerView {
       const remaining = Math.max(0, duration - this.elapsedInStep);
 
       // Update Timer UI
-      const timerEl = this.container.querySelector('.timer-display');
-      if (timerEl) timerEl.textContent = formatTime(Math.ceil(remaining));
+      const newTime = formatTime(Math.ceil(remaining));
+      if (newTime !== this.lastDisplayedTime) {
+          const timerEl = this.container.querySelector('.timer-display');
+          if (timerEl) timerEl.textContent = newTime;
+          this.lastDisplayedTime = newTime;
+      }
 
       const prevRemaining = remaining + delta;
       if (Math.ceil(prevRemaining) !== Math.ceil(remaining)) {

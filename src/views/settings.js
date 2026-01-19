@@ -1,6 +1,7 @@
 import { getState, updateState, subscribe } from '../lib/state.js';
 import { Router } from '../lib/router.js';
-import { NavBar, createElement } from '../components/ui.js';
+import { NavBar, createElement, Button } from '../components/ui.js';
+import { initAudio, schedulePattern, getAudioTime } from '../lib/audio.js';
 
 export class SettingsView {
   constructor() {
@@ -25,6 +26,11 @@ export class SettingsView {
           newState.settings = { ...newState.settings, [key]: value };
           return newState;
       });
+  }
+
+  async testAudio() {
+      await initAudio();
+      schedulePattern("S", getAudioTime() + 0.1);
   }
 
   render() {
@@ -62,6 +68,12 @@ export class SettingsView {
     });
     volumeContainer.append(volumeLabel, volumeSlider);
     content.appendChild(volumeContainer);
+
+    content.appendChild(Button({
+        label: "Test Audio (Beep)",
+        onClick: () => this.testAudio(),
+        type: 'secondary'
+    }));
 
     // Vibration
     const vibContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface); margin-top: 20px; display: flex; justify-content: space-between; align-items: center;' });

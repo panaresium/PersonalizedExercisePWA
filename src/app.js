@@ -7,6 +7,8 @@ import { StepEditorView } from './views/step-editor.js';
 import { PlayerView } from './views/player.js';
 import { DashboardView } from './views/dashboard.js';
 import { SettingsView } from './views/settings.js';
+import { BeepListView } from './views/beep-list.js';
+import { BeepEditorView } from './views/beep-editor.js';
 
 // Minimal App Entry Point
 const init = async () => {
@@ -22,6 +24,8 @@ const init = async () => {
         '/player/:id': PlayerView,
         '/dashboard': DashboardView,
         '/settings': SettingsView,
+        '/beeps': BeepListView,
+        '/beep/:id': BeepEditorView,
         '*': ProjectsListView // Fallback
     }, appContainer);
 

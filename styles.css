@@ -1,15 +1,19 @@
 :root {
-  --color-bg: #F2F2F7;
+  --color-bg: #F0F4F8; /* Softer, slightly blueish grey */
   --color-surface: #FFFFFF;
-  --color-text: #000000;
-  --color-text-secondary: #8E8E93;
-  --color-accent: #007AFF;
+  --color-text: #102A43;
+  --color-text-secondary: #627D98;
+  --color-accent: #3366FF; /* Vibrant Blue */
+  --color-accent-light: #E3F2FD;
   --color-destructive: #FF3B30;
   --color-success: #34C759;
-  --color-separator: #C6C6C8;
+  --color-separator: #E4E7EB;
 
-  --radius-card: 12px;
-  --radius-button: 8px;
+  --radius-card: 20px; /* Increased radius */
+  --radius-button: 25px; /* Pill shape buttons */
+
+  --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-float: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
 
   --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
@@ -19,11 +23,13 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #000000;
-    --color-surface: #1C1C1E;
-    --color-text: #FFFFFF;
-    --color-text-secondary: #8E8E93;
-    --color-separator: #38383A;
+    --color-bg: #102A43;
+    --color-surface: #243B53;
+    --color-text: #F0F4F8;
+    --color-text-secondary: #9FB3C8;
+    --color-separator: #334E68;
+    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    --shadow-float: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -39,7 +45,7 @@ body {
   color: var(--color-text);
   font-family: var(--font-stack);
   font-size: 17px;
-  line-height: 1.4;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -62,7 +68,7 @@ body {
 .view-content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 20px;
 }
 
 /* Headers */
@@ -70,26 +76,28 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 16px;
-  height: 44px;
-  background: var(--color-surface);
-  border-bottom: 0.5px solid var(--color-separator);
+  padding: 10px 20px;
+  height: 54px;
+  background: var(--color-bg); /* Blend with background for floating look */
+  /* border-bottom: 0.5px solid var(--color-separator); Removed for cleaner look */
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
 .nav-title {
-  font-weight: 600;
-  font-size: 17px;
+  font-weight: 700;
+  font-size: 18px;
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  color: var(--color-text);
 }
 
 .nav-action {
   color: var(--color-accent);
   font-size: 17px;
+  font-weight: 600;
   background: none;
   border: none;
   padding: 8px 0;
@@ -101,31 +109,36 @@ body {
   opacity: 0.5;
 }
 
-/* Lists */
+/* Lists - BUBBLE STYLE */
 .list-group {
-  background: var(--color-surface);
-  border-radius: var(--radius-card);
-  overflow: hidden;
+  /* No background container, items float */
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
   margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* Space between bubbles */
 }
 
 .list-item {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px 20px;
   background: var(--color-surface);
-  border-bottom: 0.5px solid var(--color-separator);
+  border-radius: var(--radius-card); /* BUBBLES */
+  box-shadow: var(--shadow-soft);
   cursor: pointer;
   text-decoration: none;
   color: inherit;
-}
-
-.list-item:last-child {
-  border-bottom: none;
+  border: none;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
 .list-item:active {
-  background-color: rgba(0,0,0,0.05);
+  transform: scale(0.98);
+  background-color: var(--color-surface); /* Keep surface color */
+  box-shadow: none;
 }
 
 .list-content {
@@ -133,70 +146,86 @@ body {
 }
 
 .list-title {
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 17px;
 }
 
 .list-subtitle {
   font-size: 14px;
   color: var(--color-text-secondary);
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .list-chevron {
   color: var(--color-text-secondary);
   opacity: 0.5;
+  font-weight: bold;
 }
 
-/* Forms */
+/* Forms - BUBBLE STYLE */
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .form-label {
   display: block;
   font-size: 13px;
+  font-weight: 600;
   color: var(--color-text-secondary);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   text-transform: uppercase;
-  padding-left: 16px;
+  letter-spacing: 0.5px;
+  padding-left: 4px;
 }
 
 .form-input, .form-textarea, .form-select {
   width: 100%;
   background: var(--color-surface);
-  border: none;
-  border-top: 0.5px solid var(--color-separator);
-  border-bottom: 0.5px solid var(--color-separator);
-  padding: 12px 16px;
+  border: 1px solid transparent; /* Prepare for focus */
+  padding: 16px;
   font-size: 17px;
   font-family: inherit;
   color: var(--color-text);
-  border-radius: 0;
+  border-radius: var(--radius-card);
   appearance: none;
+  box-shadow: var(--shadow-soft);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus, .form-textarea:focus, .form-select:focus {
+    border-color: var(--color-accent);
 }
 
 .form-textarea {
-  min-height: 100px;
+  min-height: 120px;
   resize: vertical;
 }
 
-/* Buttons */
+/* Buttons - BUBBLE STYLE */
 .btn {
   display: block;
   width: 100%;
-  padding: 14px;
-  border-radius: var(--radius-card);
+  padding: 16px;
+  border-radius: var(--radius-button);
   border: none;
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 700;
   text-align: center;
   cursor: pointer;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  transition: transform 0.1s, opacity 0.1s;
+  box-shadow: var(--shadow-soft);
+}
+
+.btn:active {
+    transform: scale(0.98);
 }
 
 .btn-primary {
   background-color: var(--color-accent);
   color: white;
+  box-shadow: 0 4px 10px rgba(51, 102, 255, 0.3); /* Blue shadow */
 }
 
 .btn-secondary {
@@ -212,6 +241,14 @@ body {
 /* Helper Text */
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
+  padding: 60px 20px;
   color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Export Container */
+.export-container {
+    margin-top: 20px;
 }

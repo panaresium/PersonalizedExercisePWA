@@ -6,6 +6,8 @@ export const createElement = (tag, className, props = {}, ...children) => {
       el.addEventListener(key.substring(2).toLowerCase(), value);
     } else if (key === 'value') {
         el.value = value;
+    } else if (key === 'checked') {
+        el.checked = value;
     } else {
       el.setAttribute(key, value);
     }
@@ -23,11 +25,11 @@ export const createElement = (tag, className, props = {}, ...children) => {
 export const NavBar = ({ title, leftAction, rightAction }) => {
   const leftEl = leftAction ?
     createElement('button', 'nav-action', { onClick: leftAction.onClick }, leftAction.label) :
-    createElement('div', 'nav-action', {}); // spacer
+    createElement('div', 'nav-action', {});
 
   const rightEl = rightAction ?
     createElement('button', 'nav-action', { onClick: rightAction.onClick }, rightAction.label) :
-    createElement('div', 'nav-action', {}); // spacer
+    createElement('div', 'nav-action', {});
 
   return createElement('header', 'nav-bar', {},
     leftEl,

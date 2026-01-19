@@ -10,6 +10,14 @@ export const initAudio = async () => {
     if (audioCtx.state === 'suspended') {
         await audioCtx.resume();
     }
+
+    // Play a silent buffer to unlock audio on iOS
+    const buffer = audioCtx.createBuffer(1, 1, 22050);
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.start(0);
+
     return audioCtx;
 };
 
@@ -21,6 +29,7 @@ export const setVolume = (val) => {
 
 const parsePattern = (pattern) => {
     // S P(120) L ...
+    if (!pattern) return [];
     const tokens = pattern.split(' ').filter(Boolean);
     const events = [];
     let cursor = 0;
@@ -33,8 +42,11 @@ const parsePattern = (pattern) => {
             events.push({ type: 'beep', start: cursor, duration: 0.5, freq: 880 });
             cursor += 0.5;
         } else if (token.startsWith('P(')) {
-            const ms = parseInt(token.match(/\d+/)[0]);
-            cursor += ms / 1000;
+            const match = token.match(/\d+/);
+            if (match) {
+                 const ms = parseInt(match[0]);
+                 cursor += ms / 1000;
+            }
         }
     });
     return events; // start times are relative to pattern start

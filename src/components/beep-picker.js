@@ -123,7 +123,8 @@ export class BeepPicker {
 
         const previewBtn = createElement('button', 'btn btn-secondary', {
              style: 'width: 44px; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center;',
-             onClick: () => this.handlePreview(currentVal)
+             onClick: () => this.handlePreview(currentVal),
+             'aria-label': 'Preview beep pattern'
         }, "▶");
 
         wrapper.appendChild(select);

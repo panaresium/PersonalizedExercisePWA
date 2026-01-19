@@ -1,7 +1,8 @@
 import { getState, updateState, subscribe } from '../lib/state.js';
 import { Router } from '../lib/router.js';
-import { NavBar, ListGroup, ListItem, Button, createElement } from '../components/ui.js';
+import { NavBar, ListGroup, ListItem, Button, createElement, Modal } from '../components/ui.js';
 import { generateId } from '../lib/utils.js';
+import { BeepPicker } from '../components/beep-picker.js';
 
 export class SetEditorView {
   constructor(params) {
@@ -10,6 +11,20 @@ export class SetEditorView {
     this.state = getState();
     this.set = this.state.exerciseSets[this.setId];
     this.unsubscribe = null;
+
+    // Set Beep Picker
+    this.beepPicker = new BeepPicker({
+        parent: this,
+        onChange: (field, value) => this.updateSetBeep(field, value)
+    });
+
+    // Bulk Apply Picker (State separate from set beeps)
+    this.isBulkModalOpen = false;
+    this.bulkBeepConfig = { onStart: '', onEnd: '' }; // Just simple defaults for now
+    this.bulkBeepPicker = new BeepPicker({
+        parent: this,
+        onChange: (field, value) => { this.bulkBeepConfig[field] = value; this.refresh(); }
+    });
   }
 
   onMount() {
@@ -30,6 +45,16 @@ export class SetEditorView {
       newState.exerciseSets[this.setId] = { ...newState.exerciseSets[this.setId], ...updates };
       return newState;
     });
+  }
+
+  updateSetBeep(field, value) {
+      updateState(state => {
+          const newState = { ...state };
+          const set = newState.exerciseSets[this.setId];
+          set.beep = { ...(set.beep || {}), [field]: value };
+          if (value === '' || value === null) delete set.beep[field];
+          return newState;
+      });
   }
 
   addStep() {
@@ -64,6 +89,47 @@ export class SetEditorView {
       Router.navigate(`/project/${this.projectId}`);
   }
 
+  openBulkModal() {
+      this.isBulkModalOpen = true;
+      this.refresh();
+  }
+
+  closeBulkModal() {
+      this.isBulkModalOpen = false;
+      this.refresh();
+  }
+
+  applyBulkBeeps() {
+      if (!confirm("This will overwrite beep settings for all steps in this set. Continue?")) return;
+
+      updateState(state => {
+          const newState = { ...state };
+          const set = newState.exerciseSets[this.setId];
+
+          (set.stepIds || []).forEach(stepId => {
+              if (newState.exerciseSteps[stepId]) {
+                  const step = newState.exerciseSteps[stepId];
+                  // Merge or Overwrite? Overwrite specific fields, keep others?
+                  // Requirement: "Bulk-assign beeps". Usually implies setting standard start/end.
+                  // We will apply the non-empty fields from bulkBeepConfig.
+                  const newBeep = { ...(step.beep || {}) };
+
+                  if (this.bulkBeepConfig.onStart !== undefined) newBeep.onStart = this.bulkBeepConfig.onStart;
+                  if (this.bulkBeepConfig.onEnd !== undefined) newBeep.onEnd = this.bulkBeepConfig.onEnd;
+
+                  // If cleared
+                  if (!newBeep.onStart) delete newBeep.onStart;
+                  if (!newBeep.onEnd) delete newBeep.onEnd;
+
+                  newState.exerciseSteps[stepId] = { ...step, beep: newBeep };
+              }
+          });
+          return newState;
+      });
+
+      this.closeBulkModal();
+  }
+
   render() {
     this.container = createElement('div', 'view');
     this.refresh();
@@ -72,6 +138,38 @@ export class SetEditorView {
 
   refresh() {
     this.container.innerHTML = '';
+
+    // Render Modals
+    const pickerModal = this.beepPicker.renderModal();
+    if (pickerModal) this.container.appendChild(pickerModal);
+
+    const bulkPickerModal = this.bulkBeepPicker.renderModal(); // In case creation happens inside bulk modal
+    if (bulkPickerModal) this.container.appendChild(bulkPickerModal);
+
+    if (this.isBulkModalOpen) {
+         // Custom Modal for Bulk Selection
+         // We use the BeepPicker's renderCards logic but scoped to local state
+         const cards = this.bulkBeepPicker.renderCards({
+             onStart: this.bulkBeepConfig.onStart,
+             onEnd: this.bulkBeepConfig.onEnd
+             // We only support Start/End bulk assign for simplicity now,
+             // but could add others if needed.
+         }).slice(0, 2); // Only Start/End
+
+         const modal = Modal({
+             title: "Apply Beeps to All Steps",
+             onCancel: () => this.closeBulkModal(),
+             onConfirm: () => this.applyBulkBeeps(),
+             confirmLabel: "Apply to All",
+             children: [
+                 createElement('div', '', {style: 'margin-bottom: 20px; color: var(--color-text-secondary); font-size: 14px;'},
+                    "Select beep patterns to apply to every step in this set. Existing step beeps will be overwritten."),
+                 ...cards
+             ]
+         });
+         this.container.appendChild(modal);
+    }
+
     if (!this.set) {
         this.container.textContent = "Set not found";
         return;
@@ -130,9 +228,22 @@ export class SetEditorView {
         restInput
     ));
 
+    // Set Beeps
+    content.appendChild(createElement('div', 'form-label', { style: 'margin-top: 24px;' }, "Set Beeps (Start/End of Set)"));
+    const setBeepConfig = this.set.beep || {};
+    const setBeepCards = this.beepPicker.renderCards({
+        onStart: setBeepConfig.onStart,
+        onEnd: setBeepConfig.onEnd
+    }).slice(0, 2); // Only Start/End for Sets usually
+    setBeepCards.forEach(c => content.appendChild(c));
+
 
     // Steps List
-    content.appendChild(createElement('div', 'form-label', {}, "Steps"));
+    const stepsHeader = createElement('div', '', { style: 'display: flex; justify-content: space-between; align-items: center; margin-top: 32px; margin-bottom: 8px;' },
+        createElement('div', 'form-label', { style: 'margin-bottom: 0;' }, "Steps"),
+        createElement('button', 'nav-action', { style: 'font-size: 14px;', onClick: () => this.openBulkModal() }, "Apply Beeps to All")
+    );
+    content.appendChild(stepsHeader);
 
     const steps = (this.set.stepIds || []).map(stepId => this.state.exerciseSteps[stepId]).filter(Boolean);
 

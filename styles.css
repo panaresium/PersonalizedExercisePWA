@@ -313,3 +313,29 @@ body {
 @keyframes popIn {
   to { transform: scale(1); }
 }
+
+/* Player High Contrast */
+.player-view {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+}
+
+.timer-display {
+    color: var(--color-text);
+    /* Ensure it doesn't blend if we had a gradient background */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.player-title {
+    color: var(--color-text);
+}
+
+.player-subtitle {
+    color: var(--color-text-secondary);
+}
+
+@media (prefers-color-scheme: dark) {
+    .timer-display {
+        color: #FFFFFF; /* Force white in dark mode for maximum contrast */
+    }
+}

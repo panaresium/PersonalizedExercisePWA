@@ -74,7 +74,7 @@ export class BeepEditorView {
         createElement('label', 'form-label', {}, "Label"),
         createElement('input', 'form-input', {
             value: this.beep.label,
-            onInput: (e) => this.updateBeep({ label: e.target.value })
+            onChange: (e) => this.updateBeep({ label: e.target.value })
         })
     ));
 
@@ -83,7 +83,7 @@ export class BeepEditorView {
         createElement('label', 'form-label', {}, "Pattern"),
         createElement('input', 'form-input', {
             value: this.beep.pattern,
-            onInput: (e) => this.updateBeep({ pattern: e.target.value }),
+            onChange: (e) => this.updateBeep({ pattern: e.target.value }),
             placeholder: "e.g. S P(100) L"
         }),
         createElement('div', 'helper-text', { style: 'font-size: 13px; color: var(--color-text-secondary); margin-top: 6px; padding: 0 16px;' },

@@ -88,7 +88,7 @@ export class SetEditorView {
     // Title & Mode
     const titleInput = createElement('input', 'form-input', {
         value: this.set.title,
-        onInput: (e) => this.updateSet({ title: e.target.value }),
+        onChange: (e) => this.updateSet({ title: e.target.value }),
         placeholder: "Set Title"
     });
 
@@ -111,13 +111,13 @@ export class SetEditorView {
     const roundsInput = createElement('input', 'form-input', {
         type: 'number',
         value: this.set.rounds,
-        onInput: (e) => this.updateSet({ rounds: parseInt(e.target.value) || 1 })
+        onChange: (e) => this.updateSet({ rounds: parseInt(e.target.value) || 1 })
     });
 
     const restInput = createElement('input', 'form-input', {
         type: 'number',
         value: this.set.restBetweenRoundsSec,
-        onInput: (e) => this.updateSet({ restBetweenRoundsSec: parseInt(e.target.value) || 0 })
+        onChange: (e) => this.updateSet({ restBetweenRoundsSec: parseInt(e.target.value) || 0 })
     });
 
     content.appendChild(createElement('div', 'form-group', {},

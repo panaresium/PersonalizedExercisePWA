@@ -117,16 +117,19 @@ export class StepEditorView {
     const nameInput = createElement('input', 'form-input', {
         value: this.step.name,
         onChange: (e) => this.updateStep({ name: e.target.value }),
-        placeholder: "Step Name"
+        placeholder: "Step Name",
+        'aria-label': "Step Name"
     });
 
     const instructionsInput = createElement('textarea', 'form-textarea', {
         value: this.step.instructions || '',
         onChange: (e) => this.updateStep({ instructions: e.target.value }),
-        placeholder: "Instructions"
+        placeholder: "Instructions",
+        'aria-label': "Instructions"
     });
 
     const durationInput = createElement('input', 'form-input', {
+        id: 'input-duration',
         type: 'number',
         value: this.step.durationSec,
         onChange: (e) => this.updateStep({ durationSec: parseInt(e.target.value) || 0 }),
@@ -139,7 +142,7 @@ export class StepEditorView {
     ));
 
     content.appendChild(createElement('div', 'form-group', {},
-        createElement('label', 'form-label', {}, "Duration (Seconds)"),
+        createElement('label', 'form-label', { for: 'input-duration' }, "Duration (Seconds)"),
         durationInput
     ));
 
@@ -175,7 +178,8 @@ export class StepEditorView {
         const fileInput = createElement('input', 'form-input', {
             type: 'file',
             accept: 'image/gif, image/png, image/jpeg',
-            onChange: (e) => this.handleMediaUpload(e)
+            onChange: (e) => this.handleMediaUpload(e),
+            'aria-label': "Upload Media"
         });
         content.appendChild(createElement('div', 'form-group', {}, fileInput));
     }

@@ -186,13 +186,15 @@ export class ProjectEditorView {
     const nameInput = createElement('input', 'form-input', {
         value: this.project.name,
         onChange: (e) => this.updateProject({ name: e.target.value }),
-        placeholder: "Project Name"
+        placeholder: "Project Name",
+        'aria-label': "Project Name"
     });
 
     const descInput = createElement('textarea', 'form-textarea', {
         value: this.project.description || '',
         onChange: (e) => this.updateProject({ description: e.target.value }),
-        placeholder: "Description"
+        placeholder: "Description",
+        'aria-label': "Description"
     });
 
     content.appendChild(createElement('div', 'form-group', {},

@@ -112,6 +112,7 @@ export class SetEditorView {
                   const step = newState.exerciseSteps[stepId];
                   const newBeep = { ...(step.beep || {}) };
 
+
                   // On Start
                   if (this.bulkBeepConfig.onStart !== NO_CHANGE) {
                        if (this.bulkBeepConfig.onStart) {
@@ -162,6 +163,7 @@ export class SetEditorView {
              onStart: this.bulkBeepConfig.onStart,
              onEnd: this.bulkBeepConfig.onEnd
          }, ['onStart', 'onEnd'], { showNoChange: true });
+
 
          const modal = Modal({
              title: "Apply Beeps to All Steps",

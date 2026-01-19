@@ -56,12 +56,12 @@ export class ProjectsListView {
               const mediaMap = new Map(); // filename -> savedPath
 
               if (mediaFiles && mediaFiles.length > 0) {
-                  for (const { filename, blob } of mediaFiles) {
+                  await Promise.all(mediaFiles.map(async ({ filename, blob }) => {
                       // Save to storage
                       // Use 'imported' assetId for now
                       const { path } = await saveMedia(newProjectId, 'imported', filename, blob);
                       mediaMap.set(filename, path);
-                  }
+                  }));
               }
 
               // Patch media paths in steps

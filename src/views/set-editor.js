@@ -2,7 +2,7 @@ import { getState, updateState, subscribe } from '../lib/state.js';
 import { Router } from '../lib/router.js';
 import { NavBar, ListGroup, ListItem, Button, createElement, Modal } from '../components/ui.js';
 import { generateId } from '../lib/utils.js';
-import { BeepPicker } from '../components/beep-picker.js';
+import { BeepPicker, NO_CHANGE_VALUE as NO_CHANGE } from '../components/beep-picker.js';
 
 export class SetEditorView {
   constructor(params) {
@@ -20,7 +20,7 @@ export class SetEditorView {
 
     // Bulk Apply Picker (State separate from set beeps)
     this.isBulkModalOpen = false;
-    this.bulkBeepConfig = { onStart: '', onEnd: '' }; // Just simple defaults for now
+    this.bulkBeepConfig = { onStart: NO_CHANGE, onEnd: NO_CHANGE };
     this.bulkBeepPicker = new BeepPicker({
         parent: this,
         onChange: (field, value) => { this.bulkBeepConfig[field] = value; this.refresh(); }
@@ -90,6 +90,7 @@ export class SetEditorView {
   }
 
   openBulkModal() {
+      this.bulkBeepConfig = { onStart: NO_CHANGE, onEnd: NO_CHANGE };
       this.isBulkModalOpen = true;
       this.refresh();
   }
@@ -100,7 +101,7 @@ export class SetEditorView {
   }
 
   applyBulkBeeps() {
-      if (!confirm("This will overwrite beep settings for all steps in this set. Continue?")) return;
+      if (!confirm("This will update beep settings for all steps in this set. Continue?")) return;
 
       updateState(state => {
           const newState = { ...state };
@@ -109,17 +110,25 @@ export class SetEditorView {
           (set.stepIds || []).forEach(stepId => {
               if (newState.exerciseSteps[stepId]) {
                   const step = newState.exerciseSteps[stepId];
-                  // Merge or Overwrite? Overwrite specific fields, keep others?
-                  // Requirement: "Bulk-assign beeps". Usually implies setting standard start/end.
-                  // We will apply the non-empty fields from bulkBeepConfig.
                   const newBeep = { ...(step.beep || {}) };
 
-                  if (this.bulkBeepConfig.onStart !== undefined) newBeep.onStart = this.bulkBeepConfig.onStart;
-                  if (this.bulkBeepConfig.onEnd !== undefined) newBeep.onEnd = this.bulkBeepConfig.onEnd;
+                  // On Start
+                  if (this.bulkBeepConfig.onStart !== NO_CHANGE) {
+                       if (this.bulkBeepConfig.onStart) {
+                           newBeep.onStart = this.bulkBeepConfig.onStart;
+                       } else {
+                           delete newBeep.onStart;
+                       }
+                  }
 
-                  // If cleared
-                  if (!newBeep.onStart) delete newBeep.onStart;
-                  if (!newBeep.onEnd) delete newBeep.onEnd;
+                  // On End
+                  if (this.bulkBeepConfig.onEnd !== NO_CHANGE) {
+                       if (this.bulkBeepConfig.onEnd) {
+                           newBeep.onEnd = this.bulkBeepConfig.onEnd;
+                       } else {
+                           delete newBeep.onEnd;
+                       }
+                  }
 
                   newState.exerciseSteps[stepId] = { ...step, beep: newBeep };
               }
@@ -152,7 +161,7 @@ export class SetEditorView {
          const cards = this.bulkBeepPicker.renderCards({
              onStart: this.bulkBeepConfig.onStart,
              onEnd: this.bulkBeepConfig.onEnd
-         }, ['onStart', 'onEnd']);
+         }, ['onStart', 'onEnd'], { showNoChange: true });
 
          const modal = Modal({
              title: "Apply Beeps to All Steps",
@@ -161,7 +170,7 @@ export class SetEditorView {
              confirmLabel: "Apply to All",
              children: [
                  createElement('div', '', {style: 'margin-bottom: 20px; color: var(--color-text-secondary); font-size: 14px;'},
-                    "Select beep patterns to apply to every step in this set. Existing step beeps will be overwritten."),
+                    "Select beep patterns to apply to every step in this set. 'Keep Existing' will preserve current settings."),
                  ...cards
              ]
          });

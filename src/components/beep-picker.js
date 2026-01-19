@@ -2,6 +2,8 @@ import { createElement, Button, Modal } from './ui.js';
 import { getState, updateState } from '../lib/state.js';
 import { initAudio, schedulePattern, getAudioTime } from '../lib/audio.js';
 
+export const NO_CHANGE_VALUE = '__NO_CHANGE__';
+
 export class BeepPicker {
   constructor(options) {
     this.parent = options.parent; // The view instance (needs refresh method)
@@ -148,12 +150,16 @@ export class BeepPicker {
 
   // Helper to render standard beep config cards
   // config = { onStart: val, onEnd: val, interval: val, intervalSec: val, countdown: val, countdownFromSec: val }
-  renderCards(config, cardTypes = ['onStart', 'onEnd', 'interval', 'countdown']) {
+  renderCards(config, cardTypes = ['onStart', 'onEnd', 'interval', 'countdown'], options = {}) {
       const beeps = this.getBeeps();
-      const beepOptions = [
-        createElement('option', '', {value: ''}, "None"),
-        ...Object.values(beeps).map(b => createElement('option', '', {value: b.id}, `${b.label} (${b.pattern})`))
-      ];
+      const beepOptions = [];
+
+      if (options.showNoChange) {
+          beepOptions.push(createElement('option', '', {value: NO_CHANGE_VALUE}, "-- Keep Existing --"));
+      }
+
+      beepOptions.push(createElement('option', '', {value: ''}, "None"));
+      beepOptions.push(...Object.values(beeps).map(b => createElement('option', '', {value: b.id}, `${b.label} (${b.pattern})`)));
 
       const cards = [];
 

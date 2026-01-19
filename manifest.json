@@ -1,9 +1,15 @@
 {
-  "name": "Personalized Exercise PWA",
-  "short_name": "Exercise PWA",
-  "start_url": ".",
+  "name": "Codex Exercise",
+  "short_name": "Codex",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
-  "icons": []
+  "background_color": "#F2F2F7",
+  "theme_color": "#007AFF",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
 }

@@ -1,6 +1,15 @@
 export const createElement = (tag, className, props = {}, ...children) => {
   const el = document.createElement(tag);
   if (className) el.className = className;
+
+  children.forEach(child => {
+    if (typeof child === 'string' || typeof child === 'number') {
+      el.appendChild(document.createTextNode(child));
+    } else if (child instanceof Node) {
+      el.appendChild(child);
+    }
+  });
+
   Object.entries(props).forEach(([key, value]) => {
     if (key.startsWith('on') && typeof value === 'function') {
       el.addEventListener(key.substring(2).toLowerCase(), value);
@@ -12,13 +21,7 @@ export const createElement = (tag, className, props = {}, ...children) => {
       el.setAttribute(key, value);
     }
   });
-  children.forEach(child => {
-    if (typeof child === 'string' || typeof child === 'number') {
-      el.appendChild(document.createTextNode(child));
-    } else if (child instanceof Node) {
-      el.appendChild(child);
-    }
-  });
+
   return el;
 };
 
@@ -55,4 +58,22 @@ export const ListGroup = (items) => {
 
 export const Button = ({ label, onClick, type = 'primary', className = '' }) => {
   return createElement('button', `btn btn-${type} ${className}`, { onClick }, label);
+};
+
+export const Modal = ({ title, children, onCancel, onConfirm, confirmLabel = "OK", cancelLabel = "Cancel" }) => {
+  const overlay = createElement('div', 'modal-overlay', { onClick: (e) => { if(e.target === overlay) onCancel(); } });
+
+  const content = createElement('div', 'modal-content', {});
+  content.appendChild(createElement('div', 'modal-title', {}, title));
+
+  children.forEach(child => content.appendChild(child));
+
+  const actions = createElement('div', 'modal-actions', {});
+  actions.appendChild(Button({ label: cancelLabel, onClick: onCancel, type: 'secondary' }));
+  actions.appendChild(Button({ label: confirmLabel, onClick: onConfirm, type: 'primary' }));
+
+  content.appendChild(actions);
+  overlay.appendChild(content);
+
+  return overlay;
 };

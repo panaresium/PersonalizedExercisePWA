@@ -27,9 +27,15 @@ export const setVolume = (val) => {
     if (masterGain) masterGain.gain.value = val;
 };
 
+const patternCache = new Map();
+
 const parsePattern = (pattern) => {
     // S P(120) L ...
     if (!pattern) return [];
+    if (patternCache.has(pattern)) {
+        return patternCache.get(pattern);
+    }
+
     const tokens = pattern.split(' ').filter(Boolean);
     const events = [];
     let cursor = 0;
@@ -49,6 +55,8 @@ const parsePattern = (pattern) => {
             }
         }
     });
+
+    patternCache.set(pattern, events);
     return events; // start times are relative to pattern start
 };
 

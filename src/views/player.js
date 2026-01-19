@@ -35,7 +35,7 @@ export class PlayerView {
 
           for (let r = 0; r < set.rounds; r++) {
               // Add steps
-              (set.stepIds || []).forEach(stepId => {
+              (set.stepIds || []).forEach((stepId, index) => {
                   const step = this.state.exerciseSteps[stepId];
                   if (step) {
                       list.push({
@@ -43,7 +43,9 @@ export class PlayerView {
                           step: step,
                           set: set,
                           roundIndex: r + 1,
-                          totalRounds: set.rounds
+                          totalRounds: set.rounds,
+                          isFirstStepInSet: (index === 0 && r === 0),
+                          isLastStepInSet: (index === set.stepIds.length - 1 && r === set.rounds - 1)
                       });
                   }
               });
@@ -134,11 +136,7 @@ export class PlayerView {
       // Schedule Start Beep if just starting step
       if (this.elapsedInStep === 0) {
           const item = this.playlist[this.currentIndex];
-          if (item) {
-             const duration = item.type === 'REST' ? item.duration : (item.step.durationSec || 0);
-             // On start, remaining time is full duration
-             this.checkBeeps(duration, item);
-          }
+          this.playStartBeeps(item);
       }
   }
 
@@ -179,10 +177,12 @@ export class PlayerView {
       if (Math.ceil(prevRemaining) !== Math.ceil(remaining)) {
           // Second changed
           const sec = Math.ceil(remaining);
-          this.checkBeeps(sec, item);
+          this.checkIntervalBeeps(sec, item);
       }
 
       if (remaining <= 0) {
+          // End Beeps
+          this.playEndBeeps(item);
           // Next step
           this.next();
       } else {
@@ -190,25 +190,49 @@ export class PlayerView {
       }
   }
 
-  checkBeeps(remainingSec, item) {
+  playStartBeeps(item) {
+      if (!item) return;
+      const beeps = this.state.beepCodes;
+
+      // Set Start Beep
+      if (item.type === 'STEP' && item.isFirstStepInSet && item.set.beep?.onStart) {
+          const pattern = beeps[item.set.beep.onStart]?.pattern;
+          if (pattern) schedulePattern(pattern, getAudioTime());
+      }
+
+      // Step Start Beep
+      if (item.type === 'STEP' && item.step.beep?.onStart) {
+          const pattern = beeps[item.step.beep.onStart]?.pattern;
+          // Add small delay if set start beep is also playing?
+          // For now, Playwright testing showed they mix fine, or Web Audio handles it.
+          // We'll schedule it slightly after if both exist, or just mix.
+          if (pattern) schedulePattern(pattern, getAudioTime());
+      }
+  }
+
+  playEndBeeps(item) {
+      if (!item) return;
+      const beeps = this.state.beepCodes;
+
+      // Step End Beep
+      if (item.type === 'STEP' && item.step.beep?.onEnd) {
+           const pattern = beeps[item.step.beep.onEnd]?.pattern;
+           if (pattern) schedulePattern(pattern, getAudioTime());
+      }
+
+      // Set End Beep
+      if (item.type === 'STEP' && item.isLastStepInSet && item.set.beep?.onEnd) {
+           const pattern = beeps[item.set.beep.onEnd]?.pattern;
+           // Delay slightly so it doesn't overlap completely with step end beep?
+           if (pattern) schedulePattern(pattern, getAudioTime() + 0.5);
+      }
+  }
+
+  checkIntervalBeeps(remainingSec, item) {
       if (!item || item.type !== 'STEP') return;
 
       const beepCfg = item.step.beep || {};
       const beeps = this.state.beepCodes;
-
-      const duration = item.step.durationSec;
-
-      // Start Beep
-      if (Math.abs(remainingSec - duration) < 0.1 && beepCfg.onStart) {
-          const pattern = beeps[beepCfg.onStart]?.pattern;
-          if (pattern) schedulePattern(pattern, getAudioTime());
-      }
-
-      // End Beep (at 0)
-      if (remainingSec === 0 && beepCfg.onEnd) {
-           const pattern = beeps[beepCfg.onEnd]?.pattern;
-           if (pattern) schedulePattern(pattern, getAudioTime());
-      }
 
       // Countdown
       if (beepCfg.countdown && beepCfg.countdownFromSec) {
@@ -217,6 +241,17 @@ export class PlayerView {
                if (pattern) schedulePattern(pattern, getAudioTime());
           }
       }
+
+      // Interval (Repeat every N seconds)
+      // If duration is 30, interval is 10. Beep at 20, 10.
+      if (beepCfg.interval && beepCfg.intervalSec) {
+           const elapsed = item.step.durationSec - remainingSec;
+           // Avoid beeping at 0 (start)
+           if (elapsed > 0 && Math.abs(elapsed % beepCfg.intervalSec) < 0.1) {
+                const pattern = beeps[beepCfg.interval]?.pattern;
+                if (pattern) schedulePattern(pattern, getAudioTime());
+           }
+      }
   }
 
   next() {
@@ -224,15 +259,10 @@ export class PlayerView {
           this.currentIndex++;
           this.elapsedInStep = 0;
           this.loadMediaForCurrent();
-          // Beep on start of next step
+
           const item = this.playlist[this.currentIndex];
-          if (item.type === 'STEP') {
-               const beepCfg = item.step.beep || {};
-               if (beepCfg.onStart) {
-                   const pattern = this.state.beepCodes[beepCfg.onStart]?.pattern;
-                   if (pattern) schedulePattern(pattern, getAudioTime());
-               }
-          }
+          this.playStartBeeps(item);
+
           if (this.status === 'RUNNING') {
               this.tick(); // Continue loop
           }
@@ -344,15 +374,15 @@ export class PlayerView {
 
       // 1. Info
       const infoDiv = createElement('div', 'player-info', { style: 'text-align: center; margin-top: 20px;' });
-      const title = createElement('h2', '', {}, item.type === 'REST' ? 'Rest' : item.step.name);
-      const sub = createElement('p', '', { style: 'color: var(--color-text-secondary);' },
+      const title = createElement('h2', 'player-title', { style: 'margin: 0; margin-bottom: 8px;' }, item.type === 'REST' ? 'Rest' : item.step.name);
+      const sub = createElement('p', 'player-subtitle', { style: 'margin: 0; color: var(--color-text-secondary);' },
         item.type === 'REST' ? `Next: ${this.playlist[this.currentIndex+1]?.step.name || 'End'}` :
         `Set ${item.roundIndex}/${item.totalRounds}`
       );
       infoDiv.append(title, sub);
 
       // 2. Media
-      const mediaDiv = createElement('div', 'player-media', { style: 'flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; max-height: 40vh; margin: 20px 0;' });
+      const mediaDiv = createElement('div', 'player-media', { style: 'flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; max-height: 40vh; margin: 20px 0; font-weight: bold; color: var(--color-text-secondary);' });
       if (this.mediaBlobUrl && item.type === 'STEP') {
           const img = createElement('img', '', { src: this.mediaBlobUrl, style: 'max-width: 100%; max-height: 100%; object-fit: contain;' });
           mediaDiv.appendChild(img);
@@ -362,7 +392,8 @@ export class PlayerView {
 
       // 3. Timer
       const remaining = item.type === 'REST' ? item.duration : item.step.durationSec;
-      const timerDiv = createElement('div', 'timer-display', { style: 'font-size: 80px; font-weight: bold; font-variant-numeric: tabular-nums; color: var(--color-text);' }, formatTime(remaining));
+      // Using var(--color-text) is usually fine, but to be 100% sure of high contrast in player, we can force a class.
+      const timerDiv = createElement('div', 'timer-display', { style: 'font-size: 80px; font-weight: bold; font-variant-numeric: tabular-nums;' }, formatTime(remaining));
 
       // 4. Controls
       const controlsDiv = createElement('div', 'player-controls', { style: 'width: 100%; display: flex; gap: 10px; margin-bottom: 20px;' });
@@ -371,7 +402,7 @@ export class PlayerView {
 
       // Instructions
       if (item.type === 'STEP' && item.step.instructions) {
-          const instDiv = createElement('div', '', {style: 'padding: 10px; background: var(--color-surface); width: 100%; border-radius: 8px; margin-bottom: 10px;'}, item.step.instructions);
+          const instDiv = createElement('div', '', {style: 'padding: 10px; background: var(--color-surface); width: 100%; border-radius: 8px; margin-bottom: 10px; box-shadow: var(--shadow-soft);'}, item.step.instructions);
           this.contentEl.appendChild(instDiv);
       }
 

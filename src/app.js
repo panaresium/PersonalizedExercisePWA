@@ -12,7 +12,14 @@ import { BeepEditorView } from './views/beep-editor.js';
 
 // Minimal App Entry Point
 const init = async () => {
-    await initState();
+    const state = await initState();
+
+    // Apply Theme
+    if (state.settings && state.settings.theme) {
+        document.body.classList.remove('theme-light', 'theme-dark');
+        if (state.settings.theme === 'light') document.body.classList.add('theme-light');
+        if (state.settings.theme === 'dark') document.body.classList.add('theme-dark');
+    }
 
     const appContainer = document.getElementById('app');
 

@@ -26,6 +26,16 @@ export class SettingsView {
           newState.settings = { ...newState.settings, [key]: value };
           return newState;
       });
+      // Apply theme immediately if changed
+      if (key === 'theme') {
+          this.applyTheme(value);
+      }
+  }
+
+  applyTheme(theme) {
+      document.body.classList.remove('theme-light', 'theme-dark');
+      if (theme === 'light') document.body.classList.add('theme-light');
+      if (theme === 'dark') document.body.classList.add('theme-dark');
   }
 
   async testAudio() {
@@ -49,8 +59,21 @@ export class SettingsView {
 
     const content = createElement('div', 'view-content');
 
+    // Theme
+    content.appendChild(createElement('div', 'form-label', {}, "Appearance"));
+    const themeSelect = createElement('select', 'form-select', {
+        value: this.state.settings.theme || 'system',
+        onChange: (e) => this.updateSetting('theme', e.target.value)
+    },
+        createElement('option', '', {value: 'system'}, "System Default"),
+        createElement('option', '', {value: 'light'}, "Light Mode"),
+        createElement('option', '', {value: 'dark'}, "Dark Mode")
+    );
+    content.appendChild(createElement('div', 'form-group', {}, themeSelect));
+
+
     // Volume
-    content.appendChild(createElement('div', 'form-label', {}, "Audio"));
+    content.appendChild(createElement('div', 'form-label', { style: 'margin-top: 20px;' }, "Audio"));
 
     const volumeContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface);' });
     const volumeLabel = createElement('div', '', { style: 'margin-bottom: 8px; display: flex; justify-content: space-between;' },

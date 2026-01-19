@@ -33,6 +33,29 @@
   }
 }
 
+/* Force Dark Mode Class (overrides root defaults if class is present on body) */
+body.theme-dark {
+    --color-bg: #102A43;
+    --color-surface: #243B53;
+    --color-text: #F0F4F8;
+    --color-text-secondary: #9FB3C8;
+    --color-separator: #334E68;
+    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    --shadow-float: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+}
+
+/* Force Light Mode Class */
+body.theme-light {
+  --color-bg: #F0F4F8;
+  --color-surface: #FFFFFF;
+  --color-text: #102A43;
+  --color-text-secondary: #627D98;
+  --color-separator: #E4E7EB;
+  --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-float: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -42,7 +65,7 @@ body {
   margin: 0;
   padding: 0;
   background-color: var(--color-bg);
-  background-image: linear-gradient(135deg, #F0F4F8 0%, #E3F2FD 100%);
+  background-image: linear-gradient(135deg, var(--color-bg) 0%, var(--color-bg) 100%); /* Simplified gradient to use var */
   background-attachment: fixed;
   color: var(--color-text);
   font-family: var(--font-stack);
@@ -293,6 +316,7 @@ body {
   font-weight: 700;
   margin-bottom: 16px;
   text-align: center;
+  color: var(--color-text);
 }
 
 .modal-actions {
@@ -334,8 +358,12 @@ body {
     color: var(--color-text-secondary);
 }
 
+/* Explicit Overrides for Dark Mode when .theme-dark is active or system pref is dark */
 @media (prefers-color-scheme: dark) {
     .timer-display {
-        color: #FFFFFF; /* Force white in dark mode for maximum contrast */
+        color: #FFFFFF;
     }
+}
+body.theme-dark .timer-display {
+    color: #FFFFFF;
 }

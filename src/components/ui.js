@@ -41,12 +41,20 @@ export const NavBar = ({ title, leftAction, rightAction }) => {
   );
 };
 
-export const ListItem = ({ title, subtitle, onClick, rightLabel }) => {
+export const ListItem = ({ title, subtitle, onClick, rightLabel, actionButton }) => {
+  const actionEl = actionButton ? createElement('button', `list-action-btn ${actionButton.className || ''}`, {
+      onClick: (e) => {
+          e.stopPropagation();
+          actionButton.onClick(e);
+      }
+  }, actionButton.label) : null;
+
   return createElement('div', 'list-item', { onClick },
     createElement('div', 'list-content', {},
       createElement('div', 'list-title', {}, title),
       subtitle ? createElement('div', 'list-subtitle', {}, subtitle) : ''
     ),
+    actionEl,
     rightLabel ? createElement('div', 'list-detail', { style: 'color: var(--color-text-secondary); margin-right: 8px;' }, rightLabel) : '',
     createElement('div', 'list-chevron', {}, '›')
   );

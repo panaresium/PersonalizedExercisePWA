@@ -105,6 +105,7 @@ export class ProjectsListView {
       title: 'Projects',
       rightAction: {
         label: '+',
+        ariaLabel: 'Create New Project',
         onClick: () => this.createNewProject()
       }
     });
@@ -137,6 +138,7 @@ export class ProjectsListView {
           subtitle: subtitle,
           actionButton: {
             label: '▶',
+            ariaLabel: `Play ${p.name}`,
             onClick: () => Router.navigate(`/player/${p.id}`)
           },
           onClick: () => Router.navigate(`/project/${p.id}`)

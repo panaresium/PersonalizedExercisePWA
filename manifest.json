@@ -1,0 +1,9 @@
+{
+  "name": "Personalized Exercise PWA",
+  "short_name": "Exercise PWA",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": []
+}

@@ -1,4 +1,4 @@
-const CACHE_NAME = "codex-pwa-v2";
+const CACHE_NAME = "codex-pwa-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -21,6 +21,8 @@ const APP_SHELL = [
   "./src/views/set-editor.js",
   "./src/views/settings.js",
   "./src/views/step-editor.js",
+  "./src/views/beep-list.js",
+  "./src/views/beep-editor.js",
   "https://cdn.jsdelivr.net/npm/idb@8.0.0/+esm",
   "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm"
 ];

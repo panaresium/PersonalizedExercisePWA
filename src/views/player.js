@@ -173,8 +173,7 @@ export class PlayerView {
       // Update Timer UI
       const newTime = formatTime(Math.ceil(remaining));
       if (newTime !== this.lastDisplayedTime) {
-          const timerEl = this.container.querySelector('.timer-display');
-          if (timerEl) timerEl.textContent = newTime;
+          if (this.timerEl) this.timerEl.textContent = newTime;
           this.lastDisplayedTime = newTime;
       }
 
@@ -399,6 +398,7 @@ export class PlayerView {
       const remaining = item.type === 'REST' ? item.duration : item.step.durationSec;
       // Using var(--color-text) is usually fine, but to be 100% sure of high contrast in player, we can force a class.
       const timerDiv = createElement('div', 'timer-display', { style: 'font-size: 80px; font-weight: bold; font-variant-numeric: tabular-nums;' }, formatTime(remaining));
+      this.timerEl = timerDiv;
 
       // 4. Controls
       const controlsDiv = createElement('div', 'player-controls', { style: 'width: 100%; display: flex; gap: 10px; margin-bottom: 20px;' });

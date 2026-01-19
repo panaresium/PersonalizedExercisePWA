@@ -20,7 +20,14 @@ export class SetEditorView {
 
     // Bulk Apply Picker (State separate from set beeps)
     this.isBulkModalOpen = false;
-    this.bulkBeepConfig = { onStart: '', onEnd: '' }; // Just simple defaults for now
+    this.bulkBeepConfig = {
+        onStart: '',
+        onEnd: '',
+        interval: '',
+        intervalSec: null,
+        countdown: '',
+        countdownFromSec: null
+    };
     this.bulkBeepPicker = new BeepPicker({
         parent: this,
         onChange: (field, value) => { this.bulkBeepConfig[field] = value; this.refresh(); }
@@ -109,17 +116,23 @@ export class SetEditorView {
           (set.stepIds || []).forEach(stepId => {
               if (newState.exerciseSteps[stepId]) {
                   const step = newState.exerciseSteps[stepId];
-                  // Merge or Overwrite? Overwrite specific fields, keep others?
-                  // Requirement: "Bulk-assign beeps". Usually implies setting standard start/end.
-                  // We will apply the non-empty fields from bulkBeepConfig.
                   const newBeep = { ...(step.beep || {}) };
 
+                  // Apply values from bulk config
                   if (this.bulkBeepConfig.onStart !== undefined) newBeep.onStart = this.bulkBeepConfig.onStart;
                   if (this.bulkBeepConfig.onEnd !== undefined) newBeep.onEnd = this.bulkBeepConfig.onEnd;
+                  if (this.bulkBeepConfig.interval !== undefined) newBeep.interval = this.bulkBeepConfig.interval;
+                  if (this.bulkBeepConfig.intervalSec !== undefined) newBeep.intervalSec = this.bulkBeepConfig.intervalSec;
+                  if (this.bulkBeepConfig.countdown !== undefined) newBeep.countdown = this.bulkBeepConfig.countdown;
+                  if (this.bulkBeepConfig.countdownFromSec !== undefined) newBeep.countdownFromSec = this.bulkBeepConfig.countdownFromSec;
 
-                  // If cleared
+                  // Cleanup empty values
                   if (!newBeep.onStart) delete newBeep.onStart;
                   if (!newBeep.onEnd) delete newBeep.onEnd;
+                  if (!newBeep.interval) delete newBeep.interval;
+                  if (!newBeep.intervalSec) delete newBeep.intervalSec;
+                  if (!newBeep.countdown) delete newBeep.countdown;
+                  if (!newBeep.countdownFromSec) delete newBeep.countdownFromSec;
 
                   newState.exerciseSteps[stepId] = { ...step, beep: newBeep };
               }
@@ -151,8 +164,12 @@ export class SetEditorView {
          // We use the BeepPicker's renderCards logic but scoped to local state
          const cards = this.bulkBeepPicker.renderCards({
              onStart: this.bulkBeepConfig.onStart,
-             onEnd: this.bulkBeepConfig.onEnd
-         }, ['onStart', 'onEnd']);
+             onEnd: this.bulkBeepConfig.onEnd,
+             interval: this.bulkBeepConfig.interval,
+             intervalSec: this.bulkBeepConfig.intervalSec,
+             countdown: this.bulkBeepConfig.countdown,
+             countdownFromSec: this.bulkBeepConfig.countdownFromSec
+         }, ['onStart', 'onEnd', 'interval', 'countdown']);
 
          const modal = Modal({
              title: "Apply Beeps to All Steps",

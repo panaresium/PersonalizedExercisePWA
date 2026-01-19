@@ -6,6 +6,7 @@ const DEFAULT_STATE = {
     volume: 0.8,
     vibrationEnabled: true,
     keepAwake: false,
+    theme: 'system', // 'system', 'light', 'dark'
   },
   beepCodes: {},
   projects: {},

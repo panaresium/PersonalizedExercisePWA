@@ -7,6 +7,7 @@ const DEFAULT_STATE = {
     vibrationEnabled: true,
     keepAwake: false,
     theme: 'system', // 'system', 'light', 'dark'
+    ttsEnabled: true,
   },
   beepCodes: {},
   projects: {},

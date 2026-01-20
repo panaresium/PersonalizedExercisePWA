@@ -88,6 +88,18 @@ body {
   height: 100%;
   padding-top: var(--safe-top);
   padding-bottom: var(--safe-bottom);
+  animation: slideUpFade 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .view-content {
@@ -164,6 +176,14 @@ body {
   transform: scale(0.98);
   background-color: var(--color-surface); /* Keep surface color */
   box-shadow: none;
+}
+
+.list-item.dragging {
+    opacity: 0.5;
+    background: var(--color-accent-light);
+    transform: scale(1.02);
+    box-shadow: var(--shadow-float);
+    z-index: 100;
 }
 
 .list-content {

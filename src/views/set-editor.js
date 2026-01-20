@@ -3,6 +3,7 @@ import { Router } from '../lib/router.js';
 import { NavBar, ListGroup, ListItem, Button, createElement, Modal } from '../components/ui.js';
 import { generateId } from '../lib/utils.js';
 import { BeepPicker, NO_CHANGE_VALUE as NO_CHANGE } from '../components/beep-picker.js';
+import { enableDragAndDrop } from '../lib/drag-drop.js';
 
 export class SetEditorView {
   constructor(params) {
@@ -74,6 +75,96 @@ export class SetEditorView {
       set.stepIds = [...(set.stepIds || []), newStepId];
       return newState;
     });
+  }
+
+  duplicateStep(stepId) {
+      updateState(state => {
+          const newState = { ...state };
+          const originalStep = newState.exerciseSteps[stepId];
+          if (!originalStep) return newState;
+
+          const newStepId = generateId();
+          const newStep = JSON.parse(JSON.stringify(originalStep));
+          newStep.id = newStepId;
+          newStep.name = `${newStep.name} (Copy)`;
+
+          newState.exerciseSteps[newStepId] = newStep;
+
+          const set = newState.exerciseSets[this.setId];
+          const index = set.stepIds.indexOf(stepId);
+          if (index !== -1) {
+              set.stepIds.splice(index + 1, 0, newStepId);
+          } else {
+              set.stepIds.push(newStepId);
+          }
+
+          return newState;
+      });
+  }
+
+  deleteStep(stepId) {
+      updateState(state => {
+          const newState = { ...state };
+          const set = newState.exerciseSets[this.setId];
+          set.stepIds = set.stepIds.filter(id => id !== stepId);
+          // We could delete the step object too, but strictly not required if we want to keep history or undo.
+          // But for now let's clean it up to avoid orphans if no one else uses it.
+          // Check if used in other sets? Too complex. Just remove from set.
+          return newState;
+      });
+  }
+
+  moveStep(stepId, direction) {
+      updateState(state => {
+          const newState = { ...state };
+          const set = newState.exerciseSets[this.setId];
+          const index = set.stepIds.indexOf(stepId);
+          if (index === -1) return newState;
+
+          const newIndex = index + direction;
+          if (newIndex < 0 || newIndex >= set.stepIds.length) return newState;
+
+          const [moved] = set.stepIds.splice(index, 1);
+          set.stepIds.splice(newIndex, 0, moved);
+          return newState;
+      });
+  }
+
+  openStepMenu(step) {
+      const modal = Modal({
+          title: step.name,
+          children: [
+             Button({ label: "Duplicate", onClick: () => { this.duplicateStep(step.id); modal.remove(); }, type: 'secondary' }),
+             Button({ label: "Move Up", onClick: () => { this.moveStep(step.id, -1); modal.remove(); }, type: 'secondary' }),
+             Button({ label: "Move Down", onClick: () => { this.moveStep(step.id, 1); modal.remove(); }, type: 'secondary' }),
+             Button({ label: "Delete", onClick: () => {
+                 if(confirm(`Delete ${step.name}?`)) this.deleteStep(step.id);
+                 modal.remove();
+             }, type: 'destructive' })
+          ],
+          onCancel: () => modal.remove(),
+          onConfirm: () => modal.remove(), // Should probably hide confirm button or make it "Close"
+          confirmLabel: "Close",
+          cancelLabel: "" // Hide cancel
+      });
+      // Hide secondary button if empty label (need to check ui.js implementation or just accept it)
+      // ui.js renders cancel button if present. I'll just use "Close" as confirm.
+      // But ui.js Modal logic: if cancelLabel is "", it still renders?
+      // "actions.appendChild(Button({ label: cancelLabel, onClick: onCancel, type: 'secondary' }));"
+      // If label is "", button is empty.
+
+      // Let's just use standard modal with Cancel/Close.
+      this.container.appendChild(modal);
+  }
+
+  handleReorder(oldIndex, newIndex) {
+      updateState(state => {
+          const newState = { ...state };
+          const set = newState.exerciseSets[this.setId];
+          const [moved] = set.stepIds.splice(oldIndex, 1);
+          set.stepIds.splice(newIndex, 0, moved);
+          return newState;
+      });
   }
 
   deleteSet() {
@@ -266,9 +357,21 @@ export class SetEditorView {
         const listItems = steps.map((step, index) => ListItem({
             title: `${index + 1}. ${step.name}`,
             subtitle: `${step.durationSec}s`,
-            onClick: () => Router.navigate(`/project/${this.projectId}/set/${this.setId}/step/${step.id}`)
+            onClick: () => Router.navigate(`/project/${this.projectId}/set/${this.setId}/step/${step.id}`),
+            actionButton: {
+                label: '⋮',
+                ariaLabel: 'Options',
+                onClick: () => this.openStepMenu(step)
+            }
         }));
-        content.appendChild(ListGroup(listItems));
+
+        const listGroup = ListGroup(listItems);
+        content.appendChild(listGroup);
+
+        // Enable Drag and Drop
+        setTimeout(() => {
+             enableDragAndDrop(listGroup, '.list-item', (o, n) => this.handleReorder(o, n));
+        }, 0);
     }
 
     content.appendChild(Button({

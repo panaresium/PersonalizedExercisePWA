@@ -98,6 +98,17 @@ export class SettingsView {
         type: 'secondary'
     }));
 
+    // TTS
+    const ttsContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface); margin-top: 20px; display: flex; justify-content: space-between; align-items: center;' });
+    const ttsLabel = createElement('div', '', {}, "Text-to-Speech Announcements");
+    const ttsToggle = createElement('input', '', {
+        type: 'checkbox',
+        checked: this.state.settings.ttsEnabled !== false, // Default true
+        onChange: (e) => this.updateSetting('ttsEnabled', e.target.checked)
+    });
+    ttsContainer.append(ttsLabel, ttsToggle);
+    content.appendChild(ttsContainer);
+
     // Vibration
     const vibContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface); margin-top: 20px; display: flex; justify-content: space-between; align-items: center;' });
     const vibLabel = createElement('div', '', {}, "Vibration");

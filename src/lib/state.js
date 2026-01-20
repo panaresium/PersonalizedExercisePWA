@@ -8,6 +8,8 @@ const DEFAULT_STATE = {
     keepAwake: false,
     theme: 'system', // 'system', 'light', 'dark'
     ttsEnabled: true,
+    delayTtsBeep: 0.5,
+    delayBeepStart: 0.5,
   },
   beepCodes: {},
   projects: {},

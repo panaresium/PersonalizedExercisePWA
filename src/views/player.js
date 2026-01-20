@@ -1,7 +1,7 @@
 import { getState, subscribe, updateState } from '../lib/state.js';
 import { Router } from '../lib/router.js';
 import { NavBar, Button, createElement } from '../components/ui.js';
-import { initAudio, schedulePattern, getAudioTime } from '../lib/audio.js';
+import { initAudio, schedulePattern, getAudioTime, getPatternDuration } from '../lib/audio.js';
 import { speak } from '../lib/tts.js';
 import { confetti } from '../lib/confetti.js';
 import { loadMedia, saveAppState } from '../lib/storage.js';
@@ -117,6 +117,55 @@ export class PlayerView {
       }
   }
 
+  wait(sec) {
+      return new Promise(resolve => setTimeout(resolve, sec * 1000));
+  }
+
+  async executeSequence() {
+      if (this.status !== 'RUNNING') return;
+
+      const sequenceIndex = this.currentIndex;
+      const isCancelled = () => this.status !== 'RUNNING' || this.currentIndex !== sequenceIndex;
+
+      const item = this.playlist[sequenceIndex];
+      if (!item) {
+          this.complete();
+          return;
+      }
+
+      // 1. TTS Announcement
+      if (this.state.settings.ttsEnabled) {
+          await this.playStepAnnouncement(item);
+          if (isCancelled()) return;
+
+          // Delay TTS -> Beep
+          const delayTts = this.state.settings.delayTtsBeep ?? 0.5;
+          if (delayTts > 0) {
+              await this.wait(delayTts);
+              if (isCancelled()) return;
+          }
+      }
+
+      // 2. Start Beeps
+      const duration = this.playStartBeeps(item);
+      if (duration > 0) {
+          // Wait for beep to finish
+          await this.wait(duration);
+          if (isCancelled()) return;
+
+          // Delay Beep -> Timer
+          const delayBeep = this.state.settings.delayBeepStart ?? 0.5;
+          if (delayBeep > 0) {
+              await this.wait(delayBeep);
+              if (isCancelled()) return;
+          }
+      }
+
+      // 3. Start Timer
+      this.lastTick = Date.now();
+      this.timerInterval = requestAnimationFrame(this.tick.bind(this));
+  }
+
   async play() {
       await initAudio();
       await this.requestWakeLock();
@@ -131,16 +180,13 @@ export class PlayerView {
       }
 
       this.status = 'RUNNING';
-      this.lastTick = Date.now();
-
-      this.timerInterval = requestAnimationFrame(this.tick.bind(this));
       this.renderControls(); // update button label
 
-      // Schedule Start Beep if just starting step
       if (this.elapsedInStep === 0) {
-          const item = this.playlist[this.currentIndex];
-          this.playStartBeeps(item);
-          this.playStepAnnouncement(item);
+          this.executeSequence();
+      } else {
+          this.lastTick = Date.now();
+          this.timerInterval = requestAnimationFrame(this.tick.bind(this));
       }
   }
 
@@ -197,38 +243,47 @@ export class PlayerView {
       }
   }
 
-  playStepAnnouncement(item) {
+  async playStepAnnouncement(item) {
       if (this.state.settings.ttsEnabled === false) return;
       if (!item) return;
 
       const nextItem = this.playlist[this.currentIndex + 1];
+      let text = "";
 
       if (item.type === 'STEP') {
-          speak(item.step.name);
+          text = item.step.name;
       } else if (item.type === 'REST') {
           const nextName = nextItem ? (nextItem.type === 'STEP' ? nextItem.step.name : 'End of workout') : 'End of workout';
-          speak(`Rest. Next up: ${nextName}`);
+          text = `Rest. Next up: ${nextName}`;
       }
+
+      if (text) await speak(text);
   }
 
   playStartBeeps(item) {
-      if (!item) return;
+      if (!item) return 0;
       const beeps = this.state.beepCodes;
+      let maxDuration = 0;
+      const now = getAudioTime();
 
       // Set Start Beep
       if (item.type === 'STEP' && item.isFirstStepInSet && item.set.beep?.onStart) {
           const pattern = beeps[item.set.beep.onStart]?.pattern;
-          if (pattern) schedulePattern(pattern, getAudioTime());
+          if (pattern) {
+              schedulePattern(pattern, now);
+              maxDuration = Math.max(maxDuration, getPatternDuration(pattern));
+          }
       }
 
       // Step Start Beep
       if (item.type === 'STEP' && item.step.beep?.onStart) {
           const pattern = beeps[item.step.beep.onStart]?.pattern;
-          // Add small delay if set start beep is also playing?
-          // For now, Playwright testing showed they mix fine, or Web Audio handles it.
-          // We'll schedule it slightly after if both exist, or just mix.
-          if (pattern) schedulePattern(pattern, getAudioTime());
+          if (pattern) {
+              schedulePattern(pattern, now);
+              maxDuration = Math.max(maxDuration, getPatternDuration(pattern));
+          }
       }
+      return maxDuration;
   }
 
   playEndBeeps(item) {
@@ -281,12 +336,9 @@ export class PlayerView {
           this.elapsedInStep = 0;
           this.loadMediaForCurrent();
 
-          const item = this.playlist[this.currentIndex];
-          this.playStartBeeps(item);
-          this.playStepAnnouncement(item);
-
           if (this.status === 'RUNNING') {
-              this.tick(); // Continue loop
+              if (this.timerInterval) cancelAnimationFrame(this.timerInterval);
+              this.executeSequence();
           }
       } else {
           this.complete();

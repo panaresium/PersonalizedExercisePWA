@@ -100,6 +100,45 @@ export class SettingsView {
         type: 'secondary'
     }));
 
+    // Timing
+    content.appendChild(createElement('div', 'form-label', { style: 'margin-top: 20px;' }, "Sequence Timing"));
+    const timingContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface);' });
+
+    // TTS -> Beep Delay
+    const delayTtsLabel = createElement('div', '', { style: 'margin-bottom: 8px; display: flex; justify-content: space-between;' },
+        "Delay: TTS → Beep",
+        createElement('span', '', {}, `${(this.state.settings.delayTtsBeep ?? 0.5).toFixed(1)}s`)
+    );
+    const delayTtsInput = createElement('input', '', {
+        type: 'range',
+        min: 0,
+        max: 5,
+        step: 0.1,
+        value: this.state.settings.delayTtsBeep ?? 0.5,
+        style: 'width: 100%;',
+        onInput: (e) => this.updateSetting('delayTtsBeep', parseFloat(e.target.value)),
+        'aria-label': "Delay between TTS and Beep"
+    });
+
+    // Beep -> Start Delay
+    const delayBeepLabel = createElement('div', '', { style: 'margin-top: 16px; margin-bottom: 8px; display: flex; justify-content: space-between;' },
+        "Delay: Beep → Timer",
+        createElement('span', '', {}, `${(this.state.settings.delayBeepStart ?? 0.5).toFixed(1)}s`)
+    );
+    const delayBeepInput = createElement('input', '', {
+        type: 'range',
+        min: 0,
+        max: 5,
+        step: 0.1,
+        value: this.state.settings.delayBeepStart ?? 0.5,
+        style: 'width: 100%;',
+        onInput: (e) => this.updateSetting('delayBeepStart', parseFloat(e.target.value)),
+        'aria-label': "Delay between Beep and Timer Start"
+    });
+
+    timingContainer.append(delayTtsLabel, delayTtsInput, delayBeepLabel, delayBeepInput);
+    content.appendChild(timingContainer);
+
     // TTS
     const ttsContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface); margin-top: 20px; display: flex; justify-content: space-between; align-items: center;' });
     const ttsLabel = createElement('label', '', { for: 'settings-tts' }, "Text-to-Speech Announcements");

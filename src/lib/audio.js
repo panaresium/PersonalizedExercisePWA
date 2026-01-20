@@ -87,3 +87,10 @@ export const schedulePattern = (pattern, startTime) => {
         }
     });
 };
+
+export const getPatternDuration = (pattern) => {
+    const events = parsePattern(pattern);
+    if (!events || events.length === 0) return 0;
+    const lastEvent = events[events.length - 1];
+    return lastEvent.start + lastEvent.duration;
+};

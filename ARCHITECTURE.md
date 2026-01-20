@@ -78,10 +78,10 @@ flowchart TD
         CheckDelta[Calc Time Delta] --> UpdateUI[Update Display]
         UpdateUI --> CheckInterval[Check Interval/Countdown Beeps]
         CheckInterval --> CheckEnd{Time <= 0?}
-        CheckEnd -- No --> TimerLoop
+        CheckEnd -- No --> CheckDelta
     end
 
-    StartTimer --> TimerLoop
+    StartTimer --> CheckDelta
 
     CheckEnd -- Yes --> EndBeeps[Play End Beeps]
     EndBeeps --> NextItem[Load Next Item]

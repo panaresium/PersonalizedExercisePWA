@@ -2,6 +2,8 @@ import { getState, subscribe, updateState } from '../lib/state.js';
 import { Router } from '../lib/router.js';
 import { NavBar, Button, createElement } from '../components/ui.js';
 import { initAudio, schedulePattern, getAudioTime } from '../lib/audio.js';
+import { speak } from '../lib/tts.js';
+import { confetti } from '../lib/confetti.js';
 import { loadMedia, saveAppState } from '../lib/storage.js';
 import { formatTime, generateId } from '../lib/utils.js';
 
@@ -138,6 +140,7 @@ export class PlayerView {
       if (this.elapsedInStep === 0) {
           const item = this.playlist[this.currentIndex];
           this.playStartBeeps(item);
+          this.playStepAnnouncement(item);
       }
   }
 
@@ -191,6 +194,20 @@ export class PlayerView {
           this.next();
       } else {
           this.timerInterval = requestAnimationFrame(this.tick.bind(this));
+      }
+  }
+
+  playStepAnnouncement(item) {
+      if (this.state.settings.ttsEnabled === false) return;
+      if (!item) return;
+
+      const nextItem = this.playlist[this.currentIndex + 1];
+
+      if (item.type === 'STEP') {
+          speak(item.step.name);
+      } else if (item.type === 'REST') {
+          const nextName = nextItem ? (nextItem.type === 'STEP' ? nextItem.step.name : 'End of workout') : 'End of workout';
+          speak(`Rest. Next up: ${nextName}`);
       }
   }
 
@@ -266,6 +283,7 @@ export class PlayerView {
 
           const item = this.playlist[this.currentIndex];
           this.playStartBeeps(item);
+          this.playStepAnnouncement(item);
 
           if (this.status === 'RUNNING') {
               this.tick(); // Continue loop
@@ -290,6 +308,7 @@ export class PlayerView {
       this.status = 'COMPLETED';
       cancelAnimationFrame(this.timerInterval);
       this.renderControls();
+      confetti();
 
       const now = new Date().toISOString();
       const duration = (new Date(now) - new Date(this.sessionStart)) / 1000;
@@ -380,7 +399,6 @@ export class PlayerView {
       const infoDiv = createElement('div', 'player-info', { style: 'text-align: center; margin-top: 20px;' });
       const title = createElement('h2', 'player-title', { style: 'margin: 0; margin-bottom: 8px;' }, item.type === 'REST' ? 'Rest' : item.step.name);
       const sub = createElement('p', 'player-subtitle', { style: 'margin: 0; color: var(--color-text-secondary);' },
-        item.type === 'REST' ? `Next: ${this.playlist[this.currentIndex+1]?.step.name || 'End'}` :
         `Set ${item.roundIndex}/${item.totalRounds}`
       );
       infoDiv.append(title, sub);
@@ -396,9 +414,21 @@ export class PlayerView {
 
       // 3. Timer
       const remaining = item.type === 'REST' ? item.duration : item.step.durationSec;
-      // Using var(--color-text) is usually fine, but to be 100% sure of high contrast in player, we can force a class.
       const timerDiv = createElement('div', 'timer-display', { style: 'font-size: 80px; font-weight: bold; font-variant-numeric: tabular-nums;' }, formatTime(remaining));
       this.timerEl = timerDiv;
+
+      // Next Up Preview
+      const nextItem = this.playlist[this.currentIndex + 1];
+      const nextUpDiv = createElement('div', 'next-up-preview', {
+          style: 'width: 100%; background: var(--color-surface); padding: 12px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-soft);'
+      });
+
+      const nextUpCol = createElement('div', '', { style: 'display: flex; flex-direction: column; align-items: flex-start;' });
+      nextUpCol.appendChild(createElement('span', '', { style: 'font-size: 11px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: bold;' }, "Next Up"));
+      nextUpCol.appendChild(createElement('span', '', { style: 'font-weight: 600; font-size: 16px;' }, nextItem ? (nextItem.type === 'STEP' ? nextItem.step.name : 'Rest') : 'Finish'));
+
+      nextUpDiv.appendChild(nextUpCol);
+      nextUpDiv.appendChild(createElement('div', '', { style: 'font-size: 20px; color: var(--color-text-secondary);' }, '›'));
 
       // 4. Controls
       const controlsDiv = createElement('div', 'player-controls', { style: 'width: 100%; display: flex; gap: 10px; margin-bottom: 20px;' });
@@ -411,7 +441,7 @@ export class PlayerView {
           this.contentEl.appendChild(instDiv);
       }
 
-      this.contentEl.append(infoDiv, mediaDiv, timerDiv, controlsDiv);
+      this.contentEl.append(infoDiv, mediaDiv, timerDiv, nextUpDiv, controlsDiv);
   }
 
   renderControls() {

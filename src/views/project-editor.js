@@ -55,6 +55,102 @@ export class ProjectEditorView {
     });
   }
 
+  duplicateSet(setId) {
+      updateState(state => {
+          const newState = { ...state };
+          const originalSet = newState.exerciseSets[setId];
+          if (!originalSet) return newState;
+
+          const newSetId = generateId();
+          const newSet = JSON.parse(JSON.stringify(originalSet));
+          newSet.id = newSetId;
+          newSet.title = `${newSet.title} (Copy)`;
+          newSet.stepIds = []; // Clear and copy steps
+
+          newState.exerciseSets[newSetId] = newSet;
+
+          // Clone steps
+          (originalSet.stepIds || []).forEach(stepId => {
+              const originalStep = newState.exerciseSteps[stepId];
+              if (!originalStep) return;
+
+              const newStepId = generateId();
+              const newStep = JSON.parse(JSON.stringify(originalStep));
+              newStep.id = newStepId;
+
+              newState.exerciseSteps[newStepId] = newStep;
+              newSet.stepIds.push(newStepId);
+          });
+
+          // Insert into project
+          const project = newState.projects[this.projectId];
+          const index = project.exerciseSetIds.indexOf(setId);
+          if (index !== -1) {
+              project.exerciseSetIds.splice(index + 1, 0, newSetId);
+          } else {
+              project.exerciseSetIds.push(newSetId);
+          }
+
+          return newState;
+      });
+  }
+
+  moveSet(setId, direction) {
+      updateState(state => {
+          const newState = { ...state };
+          const project = newState.projects[this.projectId];
+          const index = project.exerciseSetIds.indexOf(setId);
+          if (index === -1) return newState;
+
+          const newIndex = index + direction;
+          if (newIndex < 0 || newIndex >= project.exerciseSetIds.length) return newState;
+
+          const [moved] = project.exerciseSetIds.splice(index, 1);
+          project.exerciseSetIds.splice(newIndex, 0, moved);
+          return newState;
+      });
+  }
+
+  deleteSet(setId) {
+       updateState(state => {
+          const newState = { ...state };
+          const project = newState.projects[this.projectId];
+          project.exerciseSetIds = project.exerciseSetIds.filter(id => id !== setId);
+          // Ideally cleanup set and steps, but simplified for now
+          return newState;
+       });
+  }
+
+  openSetMenu(set) {
+      const modal = Modal({
+          title: set.title,
+          children: [
+             Button({ label: "Duplicate", onClick: () => { this.duplicateSet(set.id); modal.remove(); }, type: 'secondary' }),
+             Button({ label: "Move Up", onClick: () => { this.moveSet(set.id, -1); modal.remove(); }, type: 'secondary' }),
+             Button({ label: "Move Down", onClick: () => { this.moveSet(set.id, 1); modal.remove(); }, type: 'secondary' }),
+             Button({ label: "Delete", onClick: () => {
+                 if(confirm(`Delete ${set.title}?`)) this.deleteSet(set.id);
+                 modal.remove();
+             }, type: 'destructive' })
+          ],
+          onCancel: () => modal.remove(),
+          onConfirm: () => modal.remove(),
+          confirmLabel: "Close",
+          cancelLabel: ""
+      });
+      this.container.appendChild(modal);
+  }
+
+  handleReorder(oldIndex, newIndex) {
+      updateState(state => {
+          const newState = { ...state };
+          const project = newState.projects[this.projectId];
+          const [moved] = project.exerciseSetIds.splice(oldIndex, 1);
+          project.exerciseSetIds.splice(newIndex, 0, moved);
+          return newState;
+      });
+  }
+
   deleteProject() {
       this.showDeleteModal = true;
       this.refresh();
@@ -214,9 +310,21 @@ export class ProjectEditorView {
         const listItems = sets.map((set, index) => ListItem({
             title: `${index + 1}. ${set.title}`,
             subtitle: `${set.mode} • ${set.rounds} round(s)`,
-            onClick: () => Router.navigate(`/project/${this.projectId}/set/${set.id}`)
+            onClick: () => Router.navigate(`/project/${this.projectId}/set/${set.id}`),
+            actionButton: {
+                label: '⋮',
+                ariaLabel: 'Options',
+                onClick: () => this.openSetMenu(set)
+            }
         }));
-        content.appendChild(ListGroup(listItems));
+
+        const listGroup = ListGroup(listItems);
+        content.appendChild(listGroup);
+
+        // Enable Drag and Drop
+        setTimeout(() => {
+             enableDragAndDrop(listGroup, '.list-item', (o, n) => this.handleReorder(o, n));
+        }, 0);
     }
 
     content.appendChild(Button({

@@ -1,4 +1,4 @@
-const CACHE_NAME = "codex-pwa-v7";
+const CACHE_NAME = "codex-pwa-v8";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,9 +9,12 @@ const APP_SHELL = [
   "./src/components/ui.js",
   "./src/components/beep-picker.js",
   "./src/lib/audio.js",
+  "./src/lib/confetti.js",
+  "./src/lib/drag-drop.js",
   "./src/lib/router.js",
   "./src/lib/state.js",
   "./src/lib/storage.js",
+  "./src/lib/tts.js",
   "./src/lib/utils.js",
   "./src/lib/xml-parser.js",
   "./src/lib/zip-manager.js",

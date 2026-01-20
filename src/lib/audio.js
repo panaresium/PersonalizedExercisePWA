@@ -40,7 +40,7 @@ const parsePattern = (pattern) => {
     const events = [];
     let cursor = 0;
 
-    tokens.forEach(token => {
+    for (const token of tokens) {
         if (token === 'S') {
             events.push({ type: 'beep', start: cursor, duration: 0.12, freq: 880 });
             cursor += 0.12;
@@ -48,13 +48,12 @@ const parsePattern = (pattern) => {
             events.push({ type: 'beep', start: cursor, duration: 0.5, freq: 880 });
             cursor += 0.5;
         } else if (token.startsWith('P(')) {
-            const match = token.match(/\d+/);
-            if (match) {
-                 const ms = parseInt(match[0]);
+            const ms = parseInt(token.slice(2), 10);
+            if (!isNaN(ms)) {
                  cursor += ms / 1000;
             }
         }
-    });
+    }
 
     patternCache.set(pattern, events);
     return events; // start times are relative to pattern start

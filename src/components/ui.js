@@ -71,7 +71,7 @@ export const Button = ({ label, onClick, type = 'primary', className = '' }) => 
   return createElement('button', `btn btn-${type} ${className}`, { onClick }, label);
 };
 
-export const Modal = ({ title, children, onCancel, onConfirm, confirmLabel = "OK", cancelLabel = "Cancel" }) => {
+export const Modal = ({ title, children, onCancel, onConfirm, confirmLabel = "OK", cancelLabel = "Cancel", confirmType = 'primary' }) => {
   const overlay = createElement('div', 'modal-overlay', { onClick: (e) => { if(e.target === overlay) onCancel(); } });
 
   const content = createElement('div', 'modal-content', {});
@@ -81,7 +81,7 @@ export const Modal = ({ title, children, onCancel, onConfirm, confirmLabel = "OK
 
   const actions = createElement('div', 'modal-actions', {});
   actions.appendChild(Button({ label: cancelLabel, onClick: onCancel, type: 'secondary' }));
-  actions.appendChild(Button({ label: confirmLabel, onClick: onConfirm, type: 'primary' }));
+  actions.appendChild(Button({ label: confirmLabel, onClick: onConfirm, type: confirmType }));
 
   content.appendChild(actions);
   overlay.appendChild(content);

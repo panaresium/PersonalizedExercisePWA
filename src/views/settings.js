@@ -1,6 +1,6 @@
 import { getState, updateState, subscribe } from '../lib/state.js';
 import { Router } from '../lib/router.js';
-import { NavBar, createElement, Button } from '../components/ui.js';
+import { NavBar, createElement, Button, Modal } from '../components/ui.js';
 import { initAudio, schedulePattern, getAudioTime } from '../lib/audio.js';
 
 export class SettingsView {
@@ -63,7 +63,8 @@ export class SettingsView {
     content.appendChild(createElement('div', 'form-label', {}, "Appearance"));
     const themeSelect = createElement('select', 'form-select', {
         value: this.state.settings.theme || 'system',
-        onChange: (e) => this.updateSetting('theme', e.target.value)
+        onChange: (e) => this.updateSetting('theme', e.target.value),
+        'aria-label': "Theme Selection"
     },
         createElement('option', '', {value: 'system'}, "System Default"),
         createElement('option', '', {value: 'light'}, "Light Mode"),
@@ -87,7 +88,8 @@ export class SettingsView {
         step: 0.1,
         value: this.state.settings.volume,
         style: 'width: 100%;',
-        onInput: (e) => this.updateSetting('volume', parseFloat(e.target.value))
+        onInput: (e) => this.updateSetting('volume', parseFloat(e.target.value)),
+        'aria-label': "Master Volume"
     });
     volumeContainer.append(volumeLabel, volumeSlider);
     content.appendChild(volumeContainer);
@@ -100,33 +102,39 @@ export class SettingsView {
 
     // TTS
     const ttsContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface); margin-top: 20px; display: flex; justify-content: space-between; align-items: center;' });
-    const ttsLabel = createElement('div', '', {}, "Text-to-Speech Announcements");
+    const ttsLabel = createElement('label', '', { for: 'settings-tts' }, "Text-to-Speech Announcements");
     const ttsToggle = createElement('input', '', {
+        id: 'settings-tts',
         type: 'checkbox',
         checked: this.state.settings.ttsEnabled !== false, // Default true
-        onChange: (e) => this.updateSetting('ttsEnabled', e.target.checked)
+        onChange: (e) => this.updateSetting('ttsEnabled', e.target.checked),
+        'aria-label': "Text-to-Speech Announcements"
     });
     ttsContainer.append(ttsLabel, ttsToggle);
     content.appendChild(ttsContainer);
 
     // Vibration
     const vibContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface); margin-top: 20px; display: flex; justify-content: space-between; align-items: center;' });
-    const vibLabel = createElement('div', '', {}, "Vibration");
+    const vibLabel = createElement('label', '', { for: 'settings-vib' }, "Vibration");
     const vibToggle = createElement('input', '', {
+        id: 'settings-vib',
         type: 'checkbox',
         checked: this.state.settings.vibrationEnabled,
-        onChange: (e) => this.updateSetting('vibrationEnabled', e.target.checked)
+        onChange: (e) => this.updateSetting('vibrationEnabled', e.target.checked),
+        'aria-label': "Vibration"
     });
     vibContainer.append(vibLabel, vibToggle);
     content.appendChild(vibContainer);
 
     // Keep Awake
     const awakeContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface); margin-top: 20px; display: flex; justify-content: space-between; align-items: center;' });
-    const awakeLabel = createElement('div', '', {}, "Keep Screen Awake");
+    const awakeLabel = createElement('label', '', { for: 'settings-awake' }, "Keep Screen Awake");
     const awakeToggle = createElement('input', '', {
+        id: 'settings-awake',
         type: 'checkbox',
         checked: this.state.settings.keepAwake,
-        onChange: (e) => this.updateSetting('keepAwake', e.target.checked)
+        onChange: (e) => this.updateSetting('keepAwake', e.target.checked),
+        'aria-label': "Keep Screen Awake"
     });
     awakeContainer.append(awakeLabel, awakeToggle);
     content.appendChild(awakeContainer);
@@ -135,11 +143,21 @@ export class SettingsView {
     content.appendChild(createElement('div', 'form-label', { style: 'margin-top: 30px;' }, "Data"));
     const resetBtn = createElement('button', 'btn btn-destructive', {
         onClick: () => {
-            if (confirm("Are you sure? This will delete all local data.")) {
-                // Clear IDB
-                indexedDB.deleteDatabase('exercise_app');
-                location.reload();
-            }
+            const modal = Modal({
+                title: "Reset All Data",
+                children: [
+                    createElement('p', '', {}, "Are you sure? This will delete all projects, settings, and logs. This action cannot be undone.")
+                ],
+                onCancel: () => modal.remove(),
+                onConfirm: () => {
+                     // Clear IDB
+                     indexedDB.deleteDatabase('exercise_app');
+                     location.reload();
+                },
+                confirmLabel: "Reset Everything",
+                confirmType: "destructive"
+            });
+            this.container.appendChild(modal);
         }
     }, "Reset All Data");
     content.appendChild(resetBtn);

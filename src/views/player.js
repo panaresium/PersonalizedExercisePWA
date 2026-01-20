@@ -307,18 +307,18 @@ export class PlayerView {
       const form = createElement('div', 'form-group', { style: 'margin-top: 20px; text-align: left;' });
 
       // RPE Input
-      form.appendChild(createElement('label', 'form-label', {}, "RPE (1-10)"));
-      const rpeInput = createElement('input', 'form-input', { type: 'number', min: 1, max: 10, placeholder: 'Exertion level' });
+      form.appendChild(createElement('label', 'form-label', { for: 'input-rpe' }, "RPE (1-10)"));
+      const rpeInput = createElement('input', 'form-input', { id: 'input-rpe', type: 'number', min: 1, max: 10, placeholder: 'Exertion level' });
       form.appendChild(rpeInput);
 
       // Pain Score
-      form.appendChild(createElement('label', 'form-label', { style: 'margin-top: 10px;' }, "Pain Score (0-10)"));
-      const painInput = createElement('input', 'form-input', { type: 'number', min: 0, max: 10, placeholder: 'Pain level' });
+      form.appendChild(createElement('label', 'form-label', { for: 'input-pain', style: 'margin-top: 10px;' }, "Pain Score (0-10)"));
+      const painInput = createElement('input', 'form-input', { id: 'input-pain', type: 'number', min: 0, max: 10, placeholder: 'Pain level' });
       form.appendChild(painInput);
 
        // Pain Location
-      form.appendChild(createElement('label', 'form-label', { style: 'margin-top: 10px;' }, "Pain Location (Optional)"));
-      const painLocInput = createElement('input', 'form-input', { type: 'text', placeholder: 'Where did it hurt?' });
+      form.appendChild(createElement('label', 'form-label', { for: 'input-pain-loc', style: 'margin-top: 10px;' }, "Pain Location (Optional)"));
+      const painLocInput = createElement('input', 'form-input', { id: 'input-pain-loc', type: 'text', placeholder: 'Where did it hurt?' });
       form.appendChild(painLocInput);
 
       const saveBtn = Button({ label: "Save & Finish", onClick: () => {

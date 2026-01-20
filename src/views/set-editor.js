@@ -196,12 +196,14 @@ export class SetEditorView {
     const titleInput = createElement('input', 'form-input', {
         value: this.set.title,
         onChange: (e) => this.updateSet({ title: e.target.value }),
-        placeholder: "Set Title"
+        placeholder: "Set Title",
+        'aria-label': "Set Title"
     });
 
     const modeSelect = createElement('select', 'form-select', {
         value: this.set.mode,
-        onChange: (e) => this.updateSet({ mode: e.target.value })
+        onChange: (e) => this.updateSet({ mode: e.target.value }),
+        'aria-label': "Set Mode"
     },
         createElement('option', '', {value: 'STEP_SEQUENCE'}, "Step Sequence (Timed Steps)"),
         createElement('option', '', {value: 'TIME_RANGE_TOTAL'}, "Time Range Total"),
@@ -216,24 +218,26 @@ export class SetEditorView {
 
     // Rounds & Rest
     const roundsInput = createElement('input', 'form-input', {
+        id: 'input-rounds',
         type: 'number',
         value: this.set.rounds,
         onChange: (e) => this.updateSet({ rounds: parseInt(e.target.value) || 1 })
     });
 
     const restInput = createElement('input', 'form-input', {
+        id: 'input-rest',
         type: 'number',
         value: this.set.restBetweenRoundsSec,
         onChange: (e) => this.updateSet({ restBetweenRoundsSec: parseInt(e.target.value) || 0 })
     });
 
     content.appendChild(createElement('div', 'form-group', {},
-        createElement('label', 'form-label', {}, "Rounds"),
+        createElement('label', 'form-label', { for: 'input-rounds' }, "Rounds"),
         roundsInput
     ));
 
     content.appendChild(createElement('div', 'form-group', {},
-        createElement('label', 'form-label', {}, "Rest Between Rounds (Seconds)"),
+        createElement('label', 'form-label', { for: 'input-rest' }, "Rest Between Rounds (Seconds)"),
         restInput
     ));
 

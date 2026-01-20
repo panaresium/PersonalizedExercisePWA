@@ -66,9 +66,9 @@ flowchart TD
     InitAudio --> Execute[Execute Sequence Item]
 
     subgraph Sequence [Step Execution Sequence]
-        TTS[1. TTS Announcement] -->|Wait| DelayTTS[Delay (TTS -> Beep)]
+        TTS[1. TTS Announcement] -->|Wait| DelayTTS["Delay (TTS -> Beep)"]
         DelayTTS --> StartBeeps[2. Start Beeps]
-        StartBeeps -->|Wait| DelayBeep[Delay (Beep -> Timer)]
+        StartBeeps -->|Wait| DelayBeep["Delay (Beep -> Timer)"]
         DelayBeep --> StartTimer[3. Start Timer Loop]
     end
 

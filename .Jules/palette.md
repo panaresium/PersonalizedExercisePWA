@@ -5,3 +5,7 @@
 ## 2026-01-26 - Form Label Association
 **Learning:** The app's `createElement` pattern separates inputs and labels without intrinsic association. Many inputs rely on placeholders or group labels.
 **Action:** Always manually generate IDs (e.g., `input-rounds`) and explicitly pair `for` with `id` props. For inputs without visible labels, use `aria-label`.
+
+## 2026-02-18 - Modal Destructive Actions
+**Learning:** The `Modal` component originally defaulted to `primary` buttons, forcing consumers to manually manipulate the DOM to style destructive actions.
+**Action:** Updated `Modal` to accept a `confirmType` prop. Always use this prop for destructive confirmations instead of post-render DOM hacks.

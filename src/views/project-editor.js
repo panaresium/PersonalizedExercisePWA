@@ -2,6 +2,7 @@ import { getState, updateState, subscribe } from '../lib/state.js';
 import { Router } from '../lib/router.js';
 import { NavBar, ListGroup, ListItem, Button, Modal, createElement } from '../components/ui.js';
 import { generateId } from '../lib/utils.js';
+import { enableDragAndDrop } from '../lib/drag-drop.js';
 import { createExportPackage } from '../lib/zip-manager.js';
 import { serializeProjectToXml } from '../lib/xml-parser.js';
 import { loadMedia } from '../lib/storage.js';

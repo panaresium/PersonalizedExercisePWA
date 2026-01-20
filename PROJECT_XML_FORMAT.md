@@ -89,12 +89,14 @@ Represents a single activity (exercise, rest, etc.).
 - `<DurationSec>` (Integer): Duration in seconds (Optional).
 - `<Instructions>` (String): Text description or tips (Optional).
 - `<Beep>` (Optional): Triggers for sounds.
-  - Attributes map event types to `BeepCode` IDs.
+  - Attributes map event types to `BeepCode` IDs or define parameters.
   - Supported attributes:
-    - `onStart`: Plays when step begins.
-    - `onEnd`: Plays when step finishes.
-    - `interval`: Plays repeatedly at the step's interval.
-    - `countdown`: Plays during the last few seconds.
+    - `onStart`: (BeepID) Plays when step begins.
+    - `onEnd`: (BeepID) Plays when step finishes.
+    - `interval`: (BeepID) Plays repeatedly at the step's interval.
+    - `intervalSec`: (Number) Seconds between interval beeps (required if `interval` is set).
+    - `countdown`: (BeepID) Plays during the last few seconds.
+    - `countdownFromSec`: (Number) Seconds before end to start countdown (required if `countdown` is set).
 - `<Media>` (Optional): Reference to visual assets.
   - Attributes:
     - `type`: "GIF" (default).
@@ -161,6 +163,19 @@ Represents a single activity (exercise, rest, etc.).
             <Name>Rest</Name>
             <DurationSec>10</DurationSec>
             <Beep onStart="beep_rest" />
+          </Step>
+        </Steps>
+      </ExerciseSet>
+
+      <!-- Set 3: Cooldown with Media -->
+      <ExerciseSet id="set_03" order="2" mode="STEP_SEQUENCE" rounds="1" restBetweenRoundsSec="0">
+        <Title>Cooldown</Title>
+        <Steps>
+          <Step id="step_03_01" order="0">
+            <Name>Stretch</Name>
+            <DurationSec>60</DurationSec>
+            <Beep onStart="beep_start" countdown="beep_countdown" countdownFromSec="3" />
+            <Media type="GIF" path="media/stretch.gif" loop="true" />
           </Step>
         </Steps>
       </ExerciseSet>

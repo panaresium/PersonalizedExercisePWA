@@ -88,6 +88,8 @@ export const serializeProjectToXml = (projectId, state) => {
                 if (step.media.type) mediaEl.setAttribute("type", step.media.type);
                 if (step.media.frameDurationSec) mediaEl.setAttribute("frameDurationSec", step.media.frameDurationSec);
                 if (step.media.loop) mediaEl.setAttribute("loop", step.media.loop);
+                if (step.media.url) mediaEl.setAttribute("url", step.media.url);
+                if (step.media.source) mediaEl.setAttribute("source", step.media.source);
 
                 if (step.media.filename) {
                      if (step.media.type === 'GIF') {
@@ -208,17 +210,26 @@ export const parseProjectXml = (xmlString) => {
                     const mediaEl = stepEl.querySelector("Media");
                     if (mediaEl) {
                         const path = mediaEl.getAttribute("path");
+                        const url = mediaEl.getAttribute("url");
+                        const source = mediaEl.getAttribute("source") || (path ? 'FILE' : (url ? 'URL' : null));
+
+                        let mediaObj = {
+                             type: mediaEl.getAttribute("type") || 'GIF',
+                             frameDurationSec: parseFloat(mediaEl.getAttribute("frameDurationSec") || 0.1),
+                             loop: mediaEl.getAttribute("loop") !== "false",
+                             source: source,
+                             url: url || null
+                        };
+
                         if (path) {
                             const filename = path.split('/').pop();
                             const localPath = `opfs://${projectId}/imported/${filename}`;
+                            mediaObj.path = localPath;
+                            mediaObj.filename = filename;
+                        }
 
-                            newState.exerciseSteps[stepId].media = {
-                                type: mediaEl.getAttribute("type") || 'GIF',
-                                path: localPath,
-                                filename: filename,
-                                frameDurationSec: parseFloat(mediaEl.getAttribute("frameDurationSec") || 0.1),
-                                loop: mediaEl.getAttribute("loop") !== "false"
-                            };
+                        if (mediaObj.source) {
+                            newState.exerciseSteps[stepId].media = mediaObj;
                         }
                     }
                 });

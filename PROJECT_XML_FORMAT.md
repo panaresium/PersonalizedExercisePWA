@@ -103,6 +103,8 @@ Represents a single activity (exercise, rest, etc.).
     - `path`: Relative path in the zip (e.g., `media/exercise.gif`).
     - `frameDurationSec`: Seconds per frame for animated GIFs (default: 0.1).
     - `loop`: "true" or "false" (default: true).
+    - `url`: External URL for media (if `source` is "URL").
+    - `source`: "FILE" or "URL" (default: "FILE").
 
 ---
 

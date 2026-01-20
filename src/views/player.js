@@ -96,14 +96,18 @@ export class PlayerView {
       }
 
       const item = this.playlist[this.currentIndex];
-      if (item && item.type === 'STEP' && item.step.media && item.step.media.path) {
-          try {
-              const file = await loadMedia(item.step.media.path);
-              if (file) {
-                  this.mediaBlobUrl = URL.createObjectURL(file);
+      if (item && item.type === 'STEP' && item.step.media) {
+          const media = item.step.media;
+          // Only load BLOB if source is FILE or missing (legacy) and path exists
+          if ((!media.source || media.source === 'FILE') && media.path) {
+              try {
+                  const file = await loadMedia(media.path);
+                  if (file) {
+                      this.mediaBlobUrl = URL.createObjectURL(file);
+                  }
+              } catch (e) {
+                  console.error("Failed to load media", e);
               }
-          } catch (e) {
-              console.error("Failed to load media", e);
           }
       }
       this.renderContent();
@@ -457,9 +461,23 @@ export class PlayerView {
 
       // 2. Media
       const mediaDiv = createElement('div', 'player-media', { style: 'flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; max-height: 40vh; margin: 20px 0; font-weight: bold; color: var(--color-text-secondary);' });
-      if (this.mediaBlobUrl && item.type === 'STEP') {
-          const img = createElement('img', '', { src: this.mediaBlobUrl, style: 'max-width: 100%; max-height: 100%; object-fit: contain;' });
-          mediaDiv.appendChild(img);
+
+      const mediaObj = item.type === 'STEP' ? item.step.media : null;
+
+      if (mediaObj) {
+          if ((!mediaObj.source || mediaObj.source === 'FILE') && this.mediaBlobUrl) {
+              const img = createElement('img', '', { src: this.mediaBlobUrl, style: 'max-width: 100%; max-height: 100%; object-fit: contain;' });
+              mediaDiv.appendChild(img);
+          } else if (mediaObj.source === 'URL' && mediaObj.url) {
+              const element = this.createUrlMediaElement(mediaObj.url);
+              if (element) {
+                  mediaDiv.appendChild(element);
+              } else {
+                  mediaDiv.textContent = '(Invalid URL)';
+              }
+          } else {
+               mediaDiv.textContent = item.type === 'REST' ? 'Recover' : '(No Media)';
+          }
       } else {
           mediaDiv.textContent = item.type === 'REST' ? 'Recover' : '(No Media)';
       }
@@ -494,6 +512,40 @@ export class PlayerView {
       }
 
       this.contentEl.append(infoDiv, mediaDiv, timerDiv, nextUpDiv, controlsDiv);
+  }
+
+  createUrlMediaElement(url) {
+      // YouTube
+      const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+      if (ytMatch && ytMatch[1]) {
+          const iframe = createElement('iframe', '', {
+              src: `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytMatch[1]}`,
+              frameborder: '0',
+              allow: 'autoplay; encrypted-media',
+              style: 'width: 100%; height: 100%; max-width: 100%; aspect-ratio: 16/9; border-radius: 8px;'
+          });
+          return iframe;
+      }
+
+      // Video Extensions
+      if (url.match(/\.(mp4|webm|ogg|mov)$/i)) {
+           const video = createElement('video', '', {
+               src: url,
+               autoplay: true,
+               loop: true,
+               muted: true,
+               playsinline: true,
+               style: 'max-width: 100%; max-height: 100%; object-fit: contain;'
+           });
+           return video;
+      }
+
+      // Default to Image
+      const img = createElement('img', '', {
+          src: url,
+          style: 'max-width: 100%; max-height: 100%; object-fit: contain;'
+      });
+      return img;
   }
 
   renderControls() {

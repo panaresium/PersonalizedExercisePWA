@@ -19,6 +19,8 @@ export const createElement = (tag, className, props = {}, ...children) => {
         el.value = value;
     } else if (key === 'checked') {
         el.checked = value;
+    } else if (key === 'disabled') {
+        el.disabled = value;
     } else {
       el.setAttribute(key, value);
     }

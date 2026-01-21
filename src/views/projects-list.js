@@ -43,19 +43,31 @@ export class ProjectsListView {
   async importProject() {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.zip';
+      input.accept = '.zip, .xml';
       input.onchange = async (e) => {
           const file = e.target.files[0];
           if (!file) return;
 
           try {
-              const { xml, mediaFiles } = await readImportPackage(file);
+              let xml;
+              let mediaFiles = [];
+              let isXmlImport = false;
+
+              if (file.name.toLowerCase().endsWith('.xml')) {
+                  xml = await file.text();
+                  isXmlImport = true;
+              } else {
+                  const packageData = await readImportPackage(file);
+                  xml = packageData.xml;
+                  mediaFiles = packageData.mediaFiles;
+              }
+
               const importedState = parseProjectXml(xml);
 
               const newProjectId = Object.keys(importedState.projects)[0];
               const mediaMap = new Map(); // filename -> savedPath
 
-              if (mediaFiles && mediaFiles.length > 0) {
+              if (!isXmlImport && mediaFiles && mediaFiles.length > 0) {
                   await Promise.all(mediaFiles.map(async ({ filename, blob }) => {
                       // Save to storage
                       // Use 'imported' assetId for now
@@ -64,12 +76,23 @@ export class ProjectsListView {
                   }));
               }
 
-              // Patch media paths in steps
+              // Patch media paths in steps or remove local media if XML import
               Object.values(importedState.exerciseSteps).forEach(step => {
-                  if (step.media && step.media.filename) {
-                      const savedPath = mediaMap.get(step.media.filename);
-                      if (savedPath) {
-                          step.media.path = savedPath;
+                  if (isXmlImport) {
+                      // If XML import, remove local media references
+                      if (step.media) {
+                          if (step.media.source === 'FILE' || step.media.filename) {
+                              delete step.media;
+                          }
+                          // URL media is preserved
+                      }
+                  } else {
+                      // ZIP import: patch paths
+                      if (step.media && step.media.filename) {
+                          const savedPath = mediaMap.get(step.media.filename);
+                          if (savedPath) {
+                              step.media.path = savedPath;
+                          }
                       }
                   }
               });
@@ -149,7 +172,7 @@ export class ProjectsListView {
 
     content.appendChild(createElement('br'));
     content.appendChild(Button({
-        label: "Import Project (ZIP)",
+        label: "Import Project (ZIP/XML)",
         onClick: () => this.importProject(),
         type: 'secondary'
     }));

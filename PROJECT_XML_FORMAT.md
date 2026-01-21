@@ -87,7 +87,7 @@ Represents a single activity (exercise, rest, etc.).
 **Children:**
 - `<Name>` (String): Name of the exercise.
 - `<DurationSec>` (Integer): Duration in seconds (Optional).
-- `<Instructions>` (String): Text description or tips (Optional).
+- `<Instructions>` (String): Text description or tips (Optional). Used for display and TTS announcements.
 - `<Beep>` (Optional): Triggers for sounds.
   - Attributes map event types to `BeepCode` IDs or define parameters.
   - Supported attributes:

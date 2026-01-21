@@ -1,15 +1,30 @@
 import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
 
-export const createExportPackage = async (xmlString, mediaFiles) => {
+export const createExportPackage = async (projects, legacyMediaFiles) => {
   const zip = new JSZip();
-  zip.file("project.xml", xmlString);
 
-  if (mediaFiles && mediaFiles.length > 0) {
-    const mediaFolder = zip.folder("media");
-    for (const file of mediaFiles) {
-        // file: { filename: string, blob: Blob }
-        mediaFolder.file(file.filename, file.blob);
-    }
+  // projects is an array of { filename, xmlString, mediaFiles }
+  // OR for backward compatibility, handle (xmlString, mediaFiles)
+
+  let items = [];
+  if (typeof projects === 'string') {
+      items.push({ filename: 'project.xml', xmlString: projects, mediaFiles: legacyMediaFiles });
+  } else {
+      items = projects;
+  }
+
+  for (const project of items) {
+      zip.file(project.filename, project.xmlString);
+
+      if (project.mediaFiles && project.mediaFiles.length > 0) {
+        // mediaFiles should have 'path' relative to zip root or 'filename'
+        // We assume mediaFiles are { path: string, blob: Blob }
+        // path should be fully qualified like "media/Project1/img.png"
+        for (const file of project.mediaFiles) {
+             const filePath = file.path || `media/${file.filename}`;
+             zip.file(filePath, file.blob);
+        }
+      }
   }
 
   return await zip.generateAsync({ type: "blob" });
@@ -18,18 +33,24 @@ export const createExportPackage = async (xmlString, mediaFiles) => {
 export const readImportPackage = async (zipBlob) => {
   const zip = await JSZip.loadAsync(zipBlob);
 
-  const projectXmlFile = zip.file("project.xml");
-  if (!projectXmlFile) {
-      throw new Error("Invalid package: missing project.xml");
+  const xmlFiles = [];
+
+  // Find all .xml files in the root
+  zip.forEach((relativePath, file) => {
+      if (!file.dir && relativePath.toLowerCase().endsWith('.xml') && !relativePath.includes('/')) {
+          xmlFiles.push(file);
+      }
+  });
+
+  if (xmlFiles.length === 0) {
+      throw new Error("Invalid package: missing project XML files");
   }
 
-  const xmlString = await projectXmlFile.async("string");
+  const xmlStrings = await Promise.all(xmlFiles.map(f => f.async("string")));
 
   const mediaFiles = [];
   const mediaFolder = zip.folder("media");
   if (mediaFolder) {
-      // Iterate over files in media folder
-      // JSZip iteration is a bit specific
       const files = [];
       mediaFolder.forEach((relativePath, file) => {
           files.push({ path: relativePath, file });
@@ -43,5 +64,5 @@ export const readImportPackage = async (zipBlob) => {
       }
   }
 
-  return { xml: xmlString, mediaFiles };
+  return { xmls: xmlStrings, mediaFiles };
 };

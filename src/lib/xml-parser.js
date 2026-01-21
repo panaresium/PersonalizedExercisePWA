@@ -1,6 +1,6 @@
 import { generateId } from './utils.js';
 
-export const serializeProjectToXml = (projectId, state) => {
+export const serializeProjectToXml = (projectId, state, mediaPrefix = 'media') => {
     const project = state.projects[projectId];
     if (!project) return null;
 
@@ -92,12 +92,7 @@ export const serializeProjectToXml = (projectId, state) => {
                 if (step.media.source) mediaEl.setAttribute("source", step.media.source);
 
                 if (step.media.filename) {
-                     if (step.media.type === 'GIF') {
-                         mediaEl.setAttribute("path", `media/${step.media.filename}`);
-                     } else {
-                         // Fallback / simple handling
-                         mediaEl.setAttribute("path", `media/${step.media.filename}`);
-                     }
+                     mediaEl.setAttribute("path", `${mediaPrefix}/${step.media.filename}`);
                 }
                 stepEl.appendChild(mediaEl);
             }

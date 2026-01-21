@@ -61,6 +61,10 @@ export const saveMedia = async (projectId, assetId, filename, blob) => {
   return { path: path, type: 'IDB' };
 };
 
+export const getMediaBlob = async (path) => {
+    return loadMedia(path);
+}
+
 export const loadMedia = async (path) => {
   if (!path) return null;
 

@@ -251,8 +251,12 @@ export class PlayerView {
       if (this.state.settings.ttsEnabled === false) return;
       if (!item) return;
 
-      const nextItem = this.playlist[this.currentIndex + 1];
+      const sequenceIndex = this.currentIndex;
+      const isCancelled = () => this.status !== 'RUNNING' || this.currentIndex !== sequenceIndex;
+
+      // 1. Announce Name / Rest
       let text = "";
+      const nextItem = this.playlist[this.currentIndex + 1];
 
       if (item.type === 'STEP') {
           text = item.step.name;
@@ -262,6 +266,17 @@ export class PlayerView {
       }
 
       if (text) await speak(text);
+      if (isCancelled()) return;
+
+      // 2. Announce Instructions (if enabled)
+      if (item.type === 'STEP' && this.state.settings.ttsReadInstructions && item.step.instructions) {
+          const delay = this.state.settings.delayNameInstructions ?? 0.5;
+          if (delay > 0) {
+              await this.wait(delay);
+              if (isCancelled()) return;
+          }
+          await speak(item.step.instructions);
+      }
   }
 
   playStartBeeps(item) {

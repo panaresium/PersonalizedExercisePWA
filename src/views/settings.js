@@ -120,6 +120,22 @@ export class SettingsView {
         'aria-label': "Delay between TTS and Beep"
     });
 
+    // Name -> Instructions Delay
+    const delayNameInstLabel = createElement('div', '', { style: 'margin-top: 16px; margin-bottom: 8px; display: flex; justify-content: space-between;' },
+        "Delay: Name → Instructions",
+        createElement('span', '', {}, `${(this.state.settings.delayNameInstructions ?? 0.5).toFixed(1)}s`)
+    );
+    const delayNameInstInput = createElement('input', '', {
+        type: 'range',
+        min: 0,
+        max: 5,
+        step: 0.1,
+        value: this.state.settings.delayNameInstructions ?? 0.5,
+        style: 'width: 100%;',
+        onInput: (e) => this.updateSetting('delayNameInstructions', parseFloat(e.target.value)),
+        'aria-label': "Delay between Step Name and Instructions"
+    });
+
     // Beep -> Start Delay
     const delayBeepLabel = createElement('div', '', { style: 'margin-top: 16px; margin-bottom: 8px; display: flex; justify-content: space-between;' },
         "Delay: Beep → Timer",
@@ -136,12 +152,16 @@ export class SettingsView {
         'aria-label': "Delay between Beep and Timer Start"
     });
 
-    timingContainer.append(delayTtsLabel, delayTtsInput, delayBeepLabel, delayBeepInput);
+    timingContainer.append(delayTtsLabel, delayTtsInput, delayNameInstLabel, delayNameInstInput, delayBeepLabel, delayBeepInput);
     content.appendChild(timingContainer);
 
     // TTS
-    const ttsContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface); margin-top: 20px; display: flex; justify-content: space-between; align-items: center;' });
-    const ttsLabel = createElement('label', '', { for: 'settings-tts' }, "Text-to-Speech Announcements");
+    content.appendChild(createElement('div', 'form-label', { style: 'margin-top: 20px;' }, "Text-to-Speech"));
+    const ttsContainer = createElement('div', 'list-group', { style: 'padding: 16px; background: var(--color-surface);' });
+
+    // Master Toggle
+    const ttsRow = createElement('div', '', { style: 'display: flex; justify-content: space-between; align-items: center;' });
+    const ttsLabel = createElement('label', '', { for: 'settings-tts' }, "Announcements Enabled");
     const ttsToggle = createElement('input', '', {
         id: 'settings-tts',
         type: 'checkbox',
@@ -149,7 +169,25 @@ export class SettingsView {
         onChange: (e) => this.updateSetting('ttsEnabled', e.target.checked),
         'aria-label': "Text-to-Speech Announcements"
     });
-    ttsContainer.append(ttsLabel, ttsToggle);
+    ttsRow.append(ttsLabel, ttsToggle);
+
+    // Read Instructions
+    const readInstRow = createElement('div', '', { style: 'display: flex; justify-content: space-between; align-items: center; margin-top: 16px;' });
+    const readInstLabel = createElement('label', '', { for: 'settings-read-inst' }, "Read Step Instructions");
+    const readInstToggle = createElement('input', '', {
+        id: 'settings-read-inst',
+        type: 'checkbox',
+        checked: this.state.settings.ttsReadInstructions === true,
+        disabled: this.state.settings.ttsEnabled === false,
+        onChange: (e) => this.updateSetting('ttsReadInstructions', e.target.checked),
+        'aria-label': "Read Step Instructions"
+    });
+    if (this.state.settings.ttsEnabled === false) {
+        readInstRow.style.opacity = '0.5';
+    }
+    readInstRow.append(readInstLabel, readInstToggle);
+
+    ttsContainer.append(ttsRow, readInstRow);
     content.appendChild(ttsContainer);
 
     // Vibration

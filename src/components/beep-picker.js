@@ -49,6 +49,12 @@ export class BeepPicker {
           return;
       }
 
+      const existingBeeps = Object.values(this.getBeeps());
+      if (existingBeeps.some(b => b.label === this.newBeepData.label)) {
+          alert("Beep code with this name already exists");
+          return;
+      }
+
       const newId = Date.now().toString();
       const newBeep = {
           id: newId,

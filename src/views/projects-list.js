@@ -44,24 +44,12 @@ export class ProjectsListView {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = '.zip, .xml';
+      input.multiple = true;
       input.onchange = async (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
+          if (!e.target.files || e.target.files.length === 0) return;
 
           try {
-              let xmls = [];
-              let mediaFiles = [];
-              let isXmlImport = false;
-
-              if (file.name.toLowerCase().endsWith('.xml')) {
-                  xmls = [await file.text()];
-                  isXmlImport = true;
-              } else {
-                  const packageData = await readImportPackage(file);
-                  xmls = packageData.xmls;
-                  mediaFiles = packageData.mediaFiles;
-              }
-
+              const files = Array.from(e.target.files);
               const mergedState = {
                   projects: {},
                   exerciseSets: {},
@@ -69,82 +57,100 @@ export class ProjectsListView {
                   beepCodes: {}
               };
 
-              // Process each XML
-              for (const xml of xmls) {
-                  const importedState = parseProjectXml(xml);
-                  Object.assign(mergedState.projects, importedState.projects);
-                  Object.assign(mergedState.exerciseSets, importedState.exerciseSets);
-                  Object.assign(mergedState.exerciseSteps, importedState.exerciseSteps);
-                  Object.assign(mergedState.beepCodes, importedState.beepCodes);
-              }
+              for (const file of files) {
+                  let xmls = [];
+                  let mediaFiles = [];
+                  let isXmlImport = false;
 
-              // Process Media if present (ZIP import)
-              // We need a way to map the paths in the ZIP to the paths in the parsed state
-              // The `parseProjectXml` extracts path from XML.
-              // In the new ZIP structure, XML says: path="media/ProjectName/img.png"
-              // ZIP contains: "media/ProjectName/img.png"
-              // `readImportPackage` returns mediaFiles with filename="media/ProjectName/img.png"
-              // So the mapping key is the filename/path relative to ZIP root.
-
-              const mediaMap = new Map(); // zipRelativePath -> savedLocalStoragePath
-
-              if (!isXmlImport && mediaFiles && mediaFiles.length > 0) {
-                  // We treat 'filename' from readImportPackage as the full relative path
-                  await Promise.all(mediaFiles.map(async ({ filename, blob }) => {
-                      // Use folder structure to derive asset ID if possible to prevent collisions
-                      // Expected format: "media/ProjectName_ID/file.png"
-                      const parts = filename.split('/');
-                      let assetId = 'shared';
-                      let finalFilename = parts.pop();
-
-                      if (parts.length > 1) {
-                          // parts[0] is 'media', parts[1] is 'ProjectName_ID'
-                          assetId = parts[1];
-                      }
-
-                      const { path } = await saveMedia('imported', assetId, finalFilename, blob);
-                      mediaMap.set(filename, path);
-                  }));
-              }
-
-              // Patch media paths in steps
-              Object.values(mergedState.exerciseSteps).forEach(step => {
-                  if (isXmlImport) {
-                      // If XML import, remove local media references
-                      if (step.media) {
-                          if (step.media.source === 'FILE' || step.media.path || step.media.filename) {
-                              delete step.media;
-                          }
-                      }
+                  if (file.name.toLowerCase().endsWith('.xml')) {
+                      xmls = [await file.text()];
+                      isXmlImport = true;
+                  } else if (file.name.toLowerCase().endsWith('.zip')) {
+                      const packageData = await readImportPackage(file);
+                      xmls = packageData.xmls;
+                      mediaFiles = packageData.mediaFiles;
                   } else {
-                      // ZIP import: patch paths
-                      // The step.media.path from parseProjectXml comes from the XML attribute.
-                      // e.g., "media/Project/file.png"
-                      if (step.media && step.media.path) {
-                           // Try to match exact path
-                           let savedPath = mediaMap.get(step.media.path);
+                      continue; // Skip unknown files
+                  }
 
-                           // Fallback: If legacy XML used "media/file.png" but we have just "file.png" or vice versa
-                           if (!savedPath && step.media.filename) {
-                               // Try matching by filename in the list of imported media
-                               // This is a bit loose but helps with backward compatibility or structure mismatches
-                               for (const [zipPath, storagePath] of mediaMap.entries()) {
-                                   if (zipPath.endsWith(step.media.filename)) {
-                                       savedPath = storagePath;
-                                       break;
+                  // Parse XMLs first
+                  const fileParsedState = {
+                      projects: {},
+                      exerciseSets: {},
+                      exerciseSteps: {},
+                      beepCodes: {}
+                  };
+
+                  for (const xml of xmls) {
+                      const fragment = parseProjectXml(xml);
+                      Object.assign(fileParsedState.projects, fragment.projects);
+                      Object.assign(fileParsedState.exerciseSets, fragment.exerciseSets);
+                      Object.assign(fileParsedState.exerciseSteps, fragment.exerciseSteps);
+                      Object.assign(fileParsedState.beepCodes, fragment.beepCodes);
+                  }
+
+                  // Handle Media (ZIP only)
+                  const mediaMap = new Map(); // zipRelativePath -> savedLocalStoragePath
+                  if (!isXmlImport && mediaFiles && mediaFiles.length > 0) {
+                      await Promise.all(mediaFiles.map(async ({ filename, blob }) => {
+                          const parts = filename.split('/');
+                          let assetId = 'shared';
+                          let finalFilename = parts.pop();
+
+                          if (parts.length > 1) {
+                              assetId = parts[1];
+                          }
+
+                          const { path } = await saveMedia('imported', assetId, finalFilename, blob);
+                          mediaMap.set(filename, path);
+                      }));
+                  }
+
+                  // Patch media paths in steps
+                  Object.values(fileParsedState.exerciseSteps).forEach(step => {
+                      if (isXmlImport) {
+                          // XML Import: Keep media if it's external (URL), remove local path references if invalid
+                          // But wait, if source="URL", we keep it.
+                          // If source="FILE", we delete it because we don't have the file.
+                          // However, some users might import XML referencing local files they plan to add later?
+                          // Current logic: Delete if strictly local file ref to avoid broken state, keep if URL.
+                          if (step.media) {
+                               const isUrl = step.media.source === 'URL' || (step.media.url && step.media.url.startsWith('http'));
+                               if (!isUrl) {
+                                   if (step.media.source === 'FILE' || step.media.path || step.media.filename) {
+                                       delete step.media;
                                    }
                                }
-                           }
+                          }
+                      } else {
+                          // ZIP Import: Patch paths
+                          if (step.media && step.media.path) {
+                               let savedPath = mediaMap.get(step.media.path);
 
-                           if (savedPath) {
-                               step.media.path = savedPath;
-                           } else if (step.media.source === 'FILE') {
-                               // Media missing in ZIP
-                               console.warn("Missing media for step", step.id, step.media);
-                           }
+                               if (!savedPath && step.media.filename) {
+                                   for (const [zipPath, storagePath] of mediaMap.entries()) {
+                                       if (zipPath.endsWith(step.media.filename)) {
+                                           savedPath = storagePath;
+                                           break;
+                                       }
+                                   }
+                               }
+
+                               if (savedPath) {
+                                   step.media.path = savedPath;
+                               } else if (step.media.source === 'FILE') {
+                                   console.warn("Missing media for step", step.id, step.media);
+                               }
+                          }
                       }
-                  }
-              });
+                  });
+
+                  // Merge into main accumulator
+                  Object.assign(mergedState.projects, fileParsedState.projects);
+                  Object.assign(mergedState.exerciseSets, fileParsedState.exerciseSets);
+                  Object.assign(mergedState.exerciseSteps, fileParsedState.exerciseSteps);
+                  Object.assign(mergedState.beepCodes, fileParsedState.beepCodes);
+              }
 
               updateState(state => {
                   const newState = { ...state };

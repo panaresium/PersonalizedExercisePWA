@@ -1,0 +1,1 @@
+The Project XML format in use may deviate from `PROJECT_XML_FORMAT.md`. Observed variations include the Project Name stored in the `name` attribute (instead of a child `<Name>` element) and the description stored in a `<Summary>` element (instead of `<Description>`). The parser logic should be robust enough to handle both the official spec and these variations.

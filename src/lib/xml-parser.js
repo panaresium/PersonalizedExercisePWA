@@ -131,8 +131,22 @@ export const parseProjectXml = (xmlString) => {
 
     // Project
     const projectId = getNewId(projectEl.getAttribute("id"));
-    const name = projectEl.querySelector("Name")?.textContent || "Imported Project";
-    const description = projectEl.querySelector("Description")?.textContent || "";
+
+    // Resolve Name: Attribute -> Direct Child -> Deep Child (fallback)
+    let name = projectEl.getAttribute("name");
+    if (!name) {
+        const directName = Array.from(projectEl.children).find(el => el.tagName === "Name");
+        name = directName ? directName.textContent : (projectEl.querySelector("Name")?.textContent);
+    }
+    name = name || "Imported Project";
+
+    // Resolve Description: Attribute -> Direct Child (Description/Summary) -> Deep Child
+    let description = projectEl.getAttribute("description");
+    if (!description) {
+        const directDesc = Array.from(projectEl.children).find(el => ["Description", "Summary"].includes(el.tagName));
+        description = directDesc ? directDesc.textContent : (projectEl.querySelector("Description")?.textContent || projectEl.querySelector("Summary")?.textContent);
+    }
+    description = description || "";
 
     newState.projects[projectId] = {
         id: projectId,

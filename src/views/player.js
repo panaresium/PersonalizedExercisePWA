@@ -75,6 +75,7 @@ export class PlayerView {
 
   onUnmount() {
       this.stop();
+      this.hideNextUpInfo();
       if (this.mediaBlobUrl) URL.revokeObjectURL(this.mediaBlobUrl);
       if (this.wakeLock) this.wakeLock.release().catch(() => {});
   }
@@ -350,6 +351,7 @@ export class PlayerView {
   }
 
   next() {
+      this.hideNextUpInfo();
       if (this.currentIndex < this.playlist.length - 1) {
           this.currentIndex++;
           this.elapsedInStep = 0;
@@ -444,6 +446,114 @@ export class PlayerView {
       container.appendChild(saveBtn);
 
       this.contentEl.appendChild(container);
+  }
+
+  async showNextUpInfo() {
+      const nextItem = this.playlist[this.currentIndex + 1];
+      if (!nextItem) return;
+
+      this.renderNextUpPopup(nextItem);
+
+      // Load media if needed
+      if (nextItem.type === 'STEP' && nextItem.step.media) {
+           const media = nextItem.step.media;
+           if ((!media.source || media.source === 'FILE') && media.path) {
+                try {
+                    const file = await loadMedia(media.path);
+                    // Check if popup is still open
+                    if (this.nextUpPopupEl) {
+                        const container = this.nextUpPopupEl.querySelector('.next-up-media');
+                        if (file) {
+                             this.nextUpBlobUrl = URL.createObjectURL(file);
+                             if (container) {
+                                 container.innerHTML = '';
+                                 const img = createElement('img', '', { src: this.nextUpBlobUrl, style: 'width: 100%; height: 100%; object-fit: contain;' });
+                                 container.appendChild(img);
+                             }
+                        } else if (container) {
+                            container.style.display = 'none';
+                        }
+                    }
+                } catch(e) { console.error("Failed to load next media", e); }
+           }
+      }
+  }
+
+  hideNextUpInfo() {
+      if (this.nextUpPopupEl) {
+          this.nextUpPopupEl.remove();
+          this.nextUpPopupEl = null;
+      }
+      if (this.nextUpBlobUrl) {
+          URL.revokeObjectURL(this.nextUpBlobUrl);
+          this.nextUpBlobUrl = null;
+      }
+  }
+
+  renderNextUpPopup(item) {
+      this.hideNextUpInfo(); // Clear existing
+
+      const overlay = createElement('div', 'next-up-popup-overlay', {
+          style: 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto;',
+          onClick: (e) => {
+              if (e.target === overlay) this.hideNextUpInfo();
+          }
+      });
+
+      // Header
+      const header = createElement('div', '', { style: 'width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;' });
+      header.appendChild(createElement('h3', '', { style: 'margin: 0; color: rgba(255,255,255,0.7); text-transform: uppercase; font-size: 14px;' }, "Next Up"));
+      header.appendChild(createElement('button', 'nav-action', {
+          onClick: (e) => { e.stopPropagation(); this.hideNextUpInfo(); },
+          style: 'color: white; font-size: 16px; font-weight: 600; background: none; border: none; cursor: pointer; padding: 8px;'
+      }, "Close"));
+      overlay.appendChild(header);
+
+      // Content
+      const content = createElement('div', '', { style: 'width: 100%; max-width: 400px; flex: 1; display: flex; flex-direction: column;' });
+
+      // Title
+      const titleText = item.type === 'STEP' ? item.step.name : 'Rest';
+      content.appendChild(createElement('h2', '', { style: 'color: white; font-size: 24px; margin-bottom: 20px; text-align: center;' }, titleText));
+
+      // Media
+      const mediaContainer = createElement('div', 'next-up-media', {
+          style: 'width: 100%; aspect-ratio: 16/9; background: #000; margin-bottom: 20px; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center;'
+      });
+
+      let hasMedia = false;
+      if (item.type === 'STEP' && item.step.media) {
+          const media = item.step.media;
+           if (media.source === 'URL' && media.url) {
+               const el = this.createUrlMediaElement(media.url);
+               if (el) {
+                   mediaContainer.appendChild(el);
+                   hasMedia = true;
+               }
+           } else if ((!media.source || media.source === 'FILE') && media.path) {
+               // Placeholder until loaded or if missing
+               // We will update this in showNextUpInfo logic
+               mediaContainer.textContent = "Loading...";
+               hasMedia = true;
+           }
+      }
+
+      if (!hasMedia) {
+          mediaContainer.style.display = 'none';
+      }
+
+      content.appendChild(mediaContainer);
+
+      // Instructions
+      if (item.type === 'STEP' && item.step.instructions) {
+          content.appendChild(createElement('p', '', { style: 'color: rgba(255,255,255,0.9); font-size: 16px; line-height: 1.5; white-space: pre-wrap;' }, item.step.instructions));
+      } else if (item.type === 'REST') {
+           content.appendChild(createElement('p', '', { style: 'color: rgba(255,255,255,0.9); font-size: 16px; text-align: center;' }, "Relax and prepare for the next exercise."));
+      }
+
+      overlay.appendChild(content);
+      this.container.appendChild(overlay);
+      this.nextUpPopupEl = overlay;
   }
 
   render() {
@@ -542,7 +652,8 @@ export class PlayerView {
       // Next Up Preview
       const nextItem = this.playlist[this.currentIndex + 1];
       const nextUpDiv = createElement('div', 'next-up-preview', {
-          style: 'width: 100%; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 12px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-soft); border: 1px solid rgba(255,255,255,0.2);'
+          style: 'width: 100%; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 12px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-soft); border: 1px solid rgba(255,255,255,0.2); cursor: pointer;',
+          onClick: () => this.showNextUpInfo()
       });
 
       const nextUpCol = createElement('div', '', { style: 'display: flex; flex-direction: column; align-items: flex-start;' });

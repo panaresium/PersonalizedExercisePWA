@@ -384,10 +384,18 @@ export class PlayerView {
       const now = new Date().toISOString();
       const duration = (new Date(now) - new Date(this.sessionStart)) / 1000;
 
+      // Clean up media background
+      if (this.mediaSlot) this.mediaSlot.innerHTML = '';
+
       // Show Completion Form
       this.contentEl.innerHTML = '';
 
-      const container = createElement('div', 'completion-form', { style: 'text-align: center; padding: 20px; width: 100%;' });
+      // Use a card-like container for the form, but semi-transparent if we want to keep background?
+      // Let's stick to standard opaque form for readability on completion.
+      const container = createElement('div', 'completion-form', {
+          style: 'text-align: center; padding: 20px; width: 100%; background: var(--color-surface); border-radius: var(--radius-card); margin-top: 40px;'
+      });
+
       container.innerHTML = `
         <h2 style="margin-bottom: 20px;">Workout Complete!</h2>
         <p style="color: var(--color-text-secondary);">Great job!</p>
@@ -447,13 +455,57 @@ export class PlayerView {
     });
     this.container.appendChild(header);
 
-    // Content container
-    const content = createElement('div', 'view-content', { style: 'display: flex; flex-direction: column; align-items: center; justify-content: space-between;' });
-    this.container.appendChild(content);
+    // Stage Container (Fills remaining space)
+    const stage = createElement('div', 'player-stage', {
+        style: 'position: relative; flex: 1; display: flex; flex-direction: column; overflow: hidden; background-color: #000;'
+    });
+
+    // 1. Background Container (Media + Scrim)
+    this.backgroundContainer = createElement('div', 'player-background', {
+        style: 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; display: flex; align-items: center; justify-content: center;'
+    });
+
+    this.mediaSlot = createElement('div', 'media-slot', {
+         style: 'width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;'
+    });
+    this.backgroundContainer.appendChild(this.mediaSlot);
+
+    // Scrim
+    const scrim = createElement('div', 'player-scrim', {
+        style: 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); pointer-events: none; z-index: 1;'
+    });
+    this.backgroundContainer.appendChild(scrim);
+
+    stage.appendChild(this.backgroundContainer);
+
+    // 2. Content Layer
+    const content = createElement('div', 'view-content', {
+        style: 'position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%; overflow-y: auto; color: white;'
+    });
     this.contentEl = content;
+    stage.appendChild(content);
+
+    this.container.appendChild(stage);
 
     this.renderContent();
     return this.container;
+  }
+
+  updateBackgroundMedia(item) {
+      if (!this.mediaSlot) return;
+      this.mediaSlot.innerHTML = '';
+
+      const mediaObj = item?.type === 'STEP' ? item.step.media : null;
+
+      if (mediaObj) {
+           if ((!mediaObj.source || mediaObj.source === 'FILE') && this.mediaBlobUrl) {
+              const img = createElement('img', '', { src: this.mediaBlobUrl, style: 'width: 100%; height: 100%; object-fit: contain;' });
+              this.mediaSlot.appendChild(img);
+          } else if (mediaObj.source === 'URL' && mediaObj.url) {
+              const element = this.createUrlMediaElement(mediaObj.url);
+              if (element) this.mediaSlot.appendChild(element);
+          }
+      }
   }
 
   renderContent() {
@@ -461,72 +513,62 @@ export class PlayerView {
       this.contentEl.innerHTML = '';
 
       const item = this.playlist[this.currentIndex];
+
+      this.updateBackgroundMedia(item);
+
       if (!item) {
           this.contentEl.textContent = "Empty Playlist";
           return;
       }
 
       // 1. Info
-      const infoDiv = createElement('div', 'player-info', { style: 'text-align: center; margin-top: 20px;' });
-      const title = createElement('h2', 'player-title', { style: 'margin: 0; margin-bottom: 8px;' }, item.type === 'REST' ? 'Rest' : item.step.name);
-      const sub = createElement('p', 'player-subtitle', { style: 'margin: 0; color: var(--color-text-secondary);' },
+      const infoDiv = createElement('div', 'player-info', { style: 'text-align: center; margin-top: 20px; width: 100%;' });
+      const title = createElement('h2', 'player-title', { style: 'margin: 0; margin-bottom: 8px; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.8);' }, item.type === 'REST' ? 'Rest' : item.step.name);
+      const sub = createElement('p', 'player-subtitle', { style: 'margin: 0; color: rgba(255,255,255,0.8); text-shadow: 0 1px 2px rgba(0,0,0,0.8);' },
         `Set ${item.roundIndex}/${item.totalRounds}`
       );
       infoDiv.append(title, sub);
 
-      // 2. Media
-      const mediaDiv = createElement('div', 'player-media', { style: 'flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; max-height: 40vh; margin: 20px 0; font-weight: bold; color: var(--color-text-secondary);' });
-
-      const mediaObj = item.type === 'STEP' ? item.step.media : null;
-
-      if (mediaObj) {
-          if ((!mediaObj.source || mediaObj.source === 'FILE') && this.mediaBlobUrl) {
-              const img = createElement('img', '', { src: this.mediaBlobUrl, style: 'max-width: 100%; max-height: 100%; object-fit: contain;' });
-              mediaDiv.appendChild(img);
-          } else if (mediaObj.source === 'URL' && mediaObj.url) {
-              const element = this.createUrlMediaElement(mediaObj.url);
-              if (element) {
-                  mediaDiv.appendChild(element);
-              } else {
-                  mediaDiv.textContent = '(Invalid URL)';
-              }
-          } else {
-               mediaDiv.textContent = item.type === 'REST' ? 'Recover' : '(No Media)';
-          }
-      } else {
-          mediaDiv.textContent = item.type === 'REST' ? 'Recover' : '(No Media)';
-      }
-
-      // 3. Timer
+      // 2. Timer
       const remaining = item.type === 'REST' ? item.duration : item.step.durationSec;
-      const timerDiv = createElement('div', 'timer-display', { style: 'font-size: 80px; font-weight: bold; font-variant-numeric: tabular-nums;' }, formatTime(remaining));
+      const timerDiv = createElement('div', 'timer-display', {
+          style: 'font-size: 80px; font-weight: bold; font-variant-numeric: tabular-nums; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.8); margin: auto;'
+      }, formatTime(remaining));
       this.timerEl = timerDiv;
+
+      // 3. Bottom Controls Container
+      const bottomDiv = createElement('div', '', { style: 'width: 100%;' });
 
       // Next Up Preview
       const nextItem = this.playlist[this.currentIndex + 1];
       const nextUpDiv = createElement('div', 'next-up-preview', {
-          style: 'width: 100%; background: var(--color-surface); padding: 12px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-soft);'
+          style: 'width: 100%; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 12px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-soft); border: 1px solid rgba(255,255,255,0.2);'
       });
 
       const nextUpCol = createElement('div', '', { style: 'display: flex; flex-direction: column; align-items: flex-start;' });
-      nextUpCol.appendChild(createElement('span', '', { style: 'font-size: 11px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: bold;' }, "Next Up"));
-      nextUpCol.appendChild(createElement('span', '', { style: 'font-weight: 600; font-size: 16px;' }, nextItem ? (nextItem.type === 'STEP' ? nextItem.step.name : 'Rest') : 'Finish'));
+      nextUpCol.appendChild(createElement('span', '', { style: 'font-size: 11px; text-transform: uppercase; color: rgba(255,255,255,0.7); font-weight: bold;' }, "Next Up"));
+      nextUpCol.appendChild(createElement('span', '', { style: 'font-weight: 600; font-size: 16px; color: white;' }, nextItem ? (nextItem.type === 'STEP' ? nextItem.step.name : 'Rest') : 'Finish'));
 
       nextUpDiv.appendChild(nextUpCol);
-      nextUpDiv.appendChild(createElement('div', '', { style: 'font-size: 20px; color: var(--color-text-secondary);' }, '›'));
+      nextUpDiv.appendChild(createElement('div', '', { style: 'font-size: 20px; color: rgba(255,255,255,0.7);' }, '›'));
 
-      // 4. Controls
+      bottomDiv.appendChild(nextUpDiv);
+
+      // Controls
       const controlsDiv = createElement('div', 'player-controls', { style: 'width: 100%; display: flex; gap: 10px; margin-bottom: 20px;' });
       this.controlsContainer = controlsDiv;
+      bottomDiv.appendChild(controlsDiv);
       this.renderControls();
 
       // Instructions
       if (item.type === 'STEP' && item.step.instructions) {
-          const instDiv = createElement('div', '', {style: 'padding: 10px; background: var(--color-surface); width: 100%; border-radius: 8px; margin-bottom: 10px; box-shadow: var(--shadow-soft);'}, item.step.instructions);
-          this.contentEl.appendChild(instDiv);
+          const instDiv = createElement('div', '', {
+              style: 'padding: 10px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); color: white; width: 100%; border-radius: 8px; margin-bottom: 10px; backdrop-filter: blur(4px);'
+          }, item.step.instructions);
+          bottomDiv.appendChild(instDiv);
       }
 
-      this.contentEl.append(infoDiv, mediaDiv, timerDiv, nextUpDiv, controlsDiv);
+      this.contentEl.append(infoDiv, timerDiv, bottomDiv);
   }
 
   createUrlMediaElement(url) {
@@ -537,7 +579,7 @@ export class PlayerView {
               src: `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytMatch[1]}`,
               frameborder: '0',
               allow: 'autoplay; encrypted-media',
-              style: 'width: 100%; height: 100%; max-width: 100%; aspect-ratio: 16/9; border-radius: 8px;'
+              style: 'width: 100%; height: 100%; max-width: 100%; aspect-ratio: 16/9; border-radius: 0; pointer-events: none;'
           });
           return iframe;
       }
@@ -550,7 +592,7 @@ export class PlayerView {
                loop: true,
                muted: true,
                playsinline: true,
-               style: 'max-width: 100%; max-height: 100%; object-fit: contain;'
+               style: 'width: 100%; height: 100%; object-fit: contain;'
            });
            return video;
       }
@@ -558,7 +600,7 @@ export class PlayerView {
       // Default to Image
       const img = createElement('img', '', {
           src: url,
-          style: 'max-width: 100%; max-height: 100%; object-fit: contain;'
+          style: 'width: 100%; height: 100%; object-fit: contain;'
       });
       return img;
   }
@@ -568,6 +610,11 @@ export class PlayerView {
       this.controlsContainer.innerHTML = '';
 
       if (this.status === 'COMPLETED') return;
+
+      // We need to style buttons to look good on dark background.
+      // Standard buttons might be too bright or have white background.
+      // Let's rely on standard styles for now, but maybe add a class or override.
+      // The user said "controls... float on top".
 
       const prevBtn = Button({ label: "Prev", onClick: () => this.prev(), type: 'secondary', className: 'flex-1' });
       prevBtn.style.flex = '1';

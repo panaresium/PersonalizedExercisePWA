@@ -1,4 +1,9 @@
-export const generateId = () => crypto.randomUUID();
+export const generateId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+};
 
 export const formatTime = (seconds) => {
   if (isNaN(seconds)) return "0:00";

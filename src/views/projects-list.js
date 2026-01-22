@@ -57,6 +57,11 @@ export class ProjectsListView {
                   beepCodes: {}
               };
 
+              const existingBeepMap = new Map();
+              Object.values(this.state.beepCodes || {}).forEach(b => existingBeepMap.set(b.label, b.id));
+              const batchBeepMap = new Map();
+              const ignoredBeepLabels = new Set();
+
               for (const file of files) {
                   let xmls = [];
                   let mediaFiles = [];
@@ -145,11 +150,46 @@ export class ProjectsListView {
                       }
                   });
 
+                  // Deduplicate Beep Codes
+                  const idRemap = new Map();
+                  for (const beepId of Object.keys(fileParsedState.beepCodes)) {
+                      const beep = fileParsedState.beepCodes[beepId];
+                      const label = beep.label;
+
+                      const existingId = existingBeepMap.get(label) || batchBeepMap.get(label);
+
+                      if (existingId) {
+                          idRemap.set(beepId, existingId);
+                          ignoredBeepLabels.add(label);
+                          delete fileParsedState.beepCodes[beepId];
+                      } else {
+                          batchBeepMap.set(label, beepId);
+                      }
+                  }
+
+                  // Remap steps to use existing/batch beep IDs
+                  if (idRemap.size > 0) {
+                       Object.values(fileParsedState.exerciseSteps).forEach(step => {
+                           if (step.beep) {
+                               Object.keys(step.beep).forEach(key => {
+                                   const val = step.beep[key];
+                                   if (idRemap.has(val)) {
+                                       step.beep[key] = idRemap.get(val);
+                                   }
+                               });
+                           }
+                       });
+                  }
+
                   // Merge into main accumulator
                   Object.assign(mergedState.projects, fileParsedState.projects);
                   Object.assign(mergedState.exerciseSets, fileParsedState.exerciseSets);
                   Object.assign(mergedState.exerciseSteps, fileParsedState.exerciseSteps);
                   Object.assign(mergedState.beepCodes, fileParsedState.beepCodes);
+              }
+
+              if (ignoredBeepLabels.size > 0) {
+                  alert(`Ignored duplicated beep codes: ${Array.from(ignoredBeepLabels).join(', ')}`);
               }
 
               updateState(state => {

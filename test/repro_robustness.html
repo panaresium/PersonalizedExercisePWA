@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>XML Parser Robustness Test</title>
+</head>
+<body>
+    <h1>XML Parser Robustness Test</h1>
+    <div id="output"></div>
+
+    <script type="module">
+        import { parseProjectXml } from '../src/lib/xml-parser.js';
+
+        const runTest = (name, xmlString, expectedError = null) => {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            try {
+                const result = parseProjectXml(xmlString);
+                div.textContent = `PASS: ${name} -> Success`;
+                div.style.color = 'green';
+            } catch (e) {
+                if (expectedError) {
+                    div.textContent = `PASS: ${name} -> Expected Error: ${e.message}`;
+                    div.style.color = 'green';
+                } else {
+                    div.textContent = `FAIL: ${name} -> Unexpected Error: ${e.message}`;
+                    div.style.color = 'red';
+                }
+            }
+            output.appendChild(div);
+        };
+
+        const validXml = `<ProjectExport version="1.0"><Project id="p1"><Name>P1</Name></Project></ProjectExport>`;
+
+        // Case 1: Uppercase Markdown
+        const uppercase = `\`\`\`XML
+${validXml}
+\`\`\``;
+        runTest('Uppercase Markdown', uppercase);
+
+        // Case 2: No label Markdown
+        const plain = `\`\`\`
+${validXml}
+\`\`\``;
+        runTest('Plain Markdown', plain);
+
+        // Case 3: Leading text (AI chatter)
+        const aiChatter = `Here is your code:
+\`\`\`xml
+${validXml}
+\`\`\``;
+        runTest('AI Chatter', aiChatter); // Currently expected to FAIL with my current implementation
+
+        // Case 4: Trailing text
+        const trailing = `\`\`\`xml
+${validXml}
+\`\`\`
+Hope this helps!`;
+        runTest('Trailing Chatter', trailing); // Currently expected to FAIL
+
+        // Case 5: Just spaces
+        const spaces = `
+${validXml}
+   `;
+        runTest('Just Spaces', spaces);
+
+    </script>
+</body>
+</html>

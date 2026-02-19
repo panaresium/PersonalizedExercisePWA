@@ -109,16 +109,23 @@ export const serializeProjectToXml = (projectId, state, mediaPrefix = 'media') =
 };
 
 export const parseProjectXml = (xmlString) => {
-    // Sanitize input: Remove Markdown code blocks if present
-    xmlString = xmlString.trim();
-    if (xmlString.startsWith('```xml')) {
-        xmlString = xmlString.slice(6);
-    } else if (xmlString.startsWith('```')) {
-        xmlString = xmlString.slice(3);
+    // Sanitize input: Use Regex to extract the XML block
+    // This handles "Here is your code:\n```xml\n<Project...>\n```" and simple ````XML`
+    // It looks for the first occurrence of <ProjectExport or <Project
+
+    // First, try to strip markdown code blocks completely if they wrap the content
+    const codeBlockMatch = xmlString.match(/```(?:xml)?\s*([\s\S]*?)\s*```/i);
+    if (codeBlockMatch) {
+        xmlString = codeBlockMatch[1];
     }
-    if (xmlString.endsWith('```')) {
-        xmlString = xmlString.slice(0, -3);
+
+    // Second, just in case there's still text before/after (like "Here is the code: <Project>...</Project>"),
+    // find the first tag that looks like our root.
+    const rootMatch = xmlString.match(/<(ProjectExport|Project)\b[\s\S]*<\/\1>/);
+    if (rootMatch) {
+        xmlString = rootMatch[0];
     }
+
     xmlString = xmlString.trim();
 
     const parser = new DOMParser();

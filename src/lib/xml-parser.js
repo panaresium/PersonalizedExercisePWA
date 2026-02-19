@@ -109,11 +109,30 @@ export const serializeProjectToXml = (projectId, state, mediaPrefix = 'media') =
 };
 
 export const parseProjectXml = (xmlString) => {
+    // Sanitize input: Remove Markdown code blocks if present
+    xmlString = xmlString.trim();
+    if (xmlString.startsWith('```xml')) {
+        xmlString = xmlString.slice(6);
+    } else if (xmlString.startsWith('```')) {
+        xmlString = xmlString.slice(3);
+    }
+    if (xmlString.endsWith('```')) {
+        xmlString = xmlString.slice(0, -3);
+    }
+    xmlString = xmlString.trim();
+
     const parser = new DOMParser();
     const doc = parser.parseFromString(xmlString, "application/xml");
+
+    // Check for parser errors
+    const parserError = doc.querySelector("parsererror");
+    if (parserError) {
+        throw new Error(`XML Parse Error: ${parserError.textContent}`);
+    }
+
     const projectEl = doc.querySelector("Project");
 
-    if (!projectEl) throw new Error("Invalid XML: No Project element");
+    if (!projectEl) throw new Error("Invalid XML: No Project element found");
 
     const newState = {
         projects: {},

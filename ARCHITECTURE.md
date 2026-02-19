@@ -158,20 +158,21 @@ Projects are portable via a custom `.zip` package format.
 
 *   **Format:** ZIP Archive
 *   **Content:**
-    *   `project.xml`: Validated XML description of the project, sets, steps, and beeps.
-    *   `media/`: Folder containing referenced assets.
+    *   `*.xml`: One or more XML files at the root, each describing a project.
+    *   `media/`: Folder containing referenced assets for all projects.
 
 ### Import Logic
 
-When importing a project, IDs must be remapped to avoid collisions with existing data.
+When importing, the system scans the ZIP root for any file ending in `.xml`. It processes each project file sequentially, remapping IDs to avoid collisions with existing data.
 
 ```mermaid
 flowchart LR
     Zip[Import .zip] --> Extract[Extract Contents]
-    Extract --> ParseXML[Parse project.xml]
+    Extract --> ScanXML[Find *.xml Files]
     Extract --> GetMedia[Get Media Files]
 
-    subgraph Processing [ID Remapping]
+    subgraph Processing [Per Project Processing]
+        ScanXML --> ParseXML[Parse XML]
         ParseXML --> MapIDs[Map Old IDs -> New IDs]
         MapIDs --> Rehydrate[Create New State Objects]
     end

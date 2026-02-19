@@ -5,10 +5,13 @@ This document describes the XML format used to import projects into the Personal
 ## File Structure
 
 A project export is typically a ZIP file containing:
-1. `project.xml` (The file described here)
-2. `media/` (A folder containing any referenced images/GIFs)
+1.  **XML Project Files**: One or more files ending in `.xml` at the root of the archive (e.g., `project.xml`, `legs_workout.xml`). Each file represents a separate project.
+2.  **Media Assets**: A `media/` folder containing images or GIFs referenced by the projects.
 
-If no media is used, the XML file alone is sufficient.
+> **Note:** The application will automatically strip Markdown code block delimiters (\`\`\`xml ... \`\`\`) if they are present in the imported XML file. This is useful when copying directly from AI responses.
+
+### Multiple Projects
+The application supports importing multiple projects from a single ZIP file. The importer scans the root directory for all `.xml` files and processes them individually.
 
 ## XML Schema
 
@@ -94,17 +97,17 @@ Represents a single activity (exercise, rest, etc.).
     - `onStart`: (BeepID) Plays when step begins.
     - `onEnd`: (BeepID) Plays when step finishes.
     - `interval`: (BeepID) Plays repeatedly at the step's interval.
-    - `intervalSec`: (Number) Seconds between interval beeps (required if `interval` is set).
+    - `intervalSec`: (Number) Seconds between interval beeps (Required if `interval` is set).
     - `countdown`: (BeepID) Plays during the last few seconds.
-    - `countdownFromSec`: (Number) Seconds before end to start countdown (required if `countdown` is set).
+    - `countdownFromSec`: (Number) Seconds before end to start countdown (Required if `countdown` is set).
 - `<Media>` (Optional): Reference to visual assets.
   - Attributes:
     - `type`: "GIF" (default).
-    - `path`: Relative path in the zip (e.g., `media/exercise.gif`).
+    - `path`: Relative path in the ZIP archive (e.g., `media/exercise.gif`).
     - `frameDurationSec`: Seconds per frame for animated GIFs (default: 0.1).
     - `loop`: "true" or "false" (default: true).
     - `url`: External URL for media (if `source` is "URL").
-    - `source`: "FILE" or "URL" (default: "FILE").
+    - `source`: "FILE" or "URL". Defaults to "FILE" if `path` is present, "URL" if `url` is present.
 
 ---
 
@@ -177,7 +180,7 @@ Represents a single activity (exercise, rest, etc.).
             <Name>Stretch</Name>
             <DurationSec>60</DurationSec>
             <Beep onStart="beep_start" countdown="beep_countdown" countdownFromSec="3" />
-            <Media type="GIF" path="media/stretch.gif" loop="true" />
+            <Media type="GIF" path="media/stretch.gif" loop="true" source="FILE" />
           </Step>
         </Steps>
       </ExerciseSet>

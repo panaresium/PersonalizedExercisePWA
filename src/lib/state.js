@@ -12,6 +12,7 @@ const DEFAULT_STATE = {
     delayTtsBeep: 0.5,
     delayNameInstructions: 0.5,
     delayBeepStart: 0.5,
+    autoPopupMediaDelay: 0,
   },
   beepCodes: {},
   projects: {},
@@ -30,7 +31,14 @@ export const initState = async () => {
   const saved = await getAppState();
   currentState = saved || DEFAULT_STATE;
   // Ensure deep structure exists if loading partial state
-  currentState = { ...DEFAULT_STATE, ...currentState };
+  currentState = {
+      ...DEFAULT_STATE,
+      ...currentState,
+      settings: {
+          ...DEFAULT_STATE.settings,
+          ...(currentState.settings || {})
+      }
+  };
   return currentState;
 };
 

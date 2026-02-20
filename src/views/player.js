@@ -26,6 +26,13 @@ export class PlayerView {
     this.mediaBlobUrl = null;
     this.sessionStart = null;
     this.lastDisplayedTime = null;
+
+    this.isPopupOpen = false;
+    this.popupTriggeredForStep = false;
+    this.popupEl = null;
+    this.popupTimerEl = null;
+    this.popupMediaContainer = null;
+    this.popupPlayBtn = null;
   }
 
   buildPlaylist() {
@@ -188,6 +195,7 @@ export class PlayerView {
       this.renderControls(); // update button label
 
       if (this.elapsedInStep === 0) {
+          this.popupTriggeredForStep = false;
           this.executeSequence();
       } else {
           this.lastTick = Date.now();
@@ -228,7 +236,18 @@ export class PlayerView {
       const newTime = formatTime(Math.ceil(remaining));
       if (newTime !== this.lastDisplayedTime) {
           if (this.timerEl) this.timerEl.textContent = newTime;
+          if (this.popupTimerEl && this.isPopupOpen) this.popupTimerEl.textContent = newTime;
           this.lastDisplayedTime = newTime;
+      }
+
+      // Auto Popup Logic
+      if (this.state.settings.autoPopupMediaDelay > 0 &&
+          !this.popupTriggeredForStep &&
+          this.elapsedInStep >= this.state.settings.autoPopupMediaDelay &&
+          !this.isPopupOpen) {
+
+          this.openPopup();
+          this.popupTriggeredForStep = true;
       }
 
       const prevRemaining = remaining + delta;
@@ -355,6 +374,7 @@ export class PlayerView {
       if (this.currentIndex < this.playlist.length - 1) {
           this.currentIndex++;
           this.elapsedInStep = 0;
+          this.popupTriggeredForStep = false;
           this.loadMediaForCurrent();
 
           if (this.status === 'RUNNING') {
@@ -372,6 +392,7 @@ export class PlayerView {
        } else if (this.currentIndex > 0) {
            this.currentIndex--;
            this.elapsedInStep = 0;
+           this.popupTriggeredForStep = false;
            this.loadMediaForCurrent();
        }
        this.renderContent();
@@ -588,6 +609,15 @@ export class PlayerView {
 
     stage.appendChild(this.backgroundContainer);
 
+    // Manual Popup Trigger Button (Icon overlay)
+    // Placed directly on stage with high z-index to ensure it's clickable over view-content
+    const popupTrigger = createElement('button', 'popup-trigger-btn', {
+        style: 'position: absolute; top: 16px; right: 16px; z-index: 10; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); font-size: 20px;',
+        onClick: () => this.openPopup(),
+        'aria-label': 'Expand Media'
+    }, '⛶');
+    stage.appendChild(popupTrigger);
+
     // 2. Content Layer
     const content = createElement('div', 'view-content', {
         style: 'position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%; overflow-y: auto; color: white;'
@@ -597,8 +627,115 @@ export class PlayerView {
 
     this.container.appendChild(stage);
 
+    // 3. Popup Layer
+    this.renderPopup();
+
     this.renderContent();
     return this.container;
+  }
+
+  renderPopup() {
+      // Full screen overlay
+      this.popupEl = createElement('div', 'media-popup-overlay', {
+          style: 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 1000; display: none; flex-direction: column; justify-content: space-between;'
+      });
+
+      // Header Controls (Top Right)
+      const header = createElement('div', 'popup-header', {
+          style: 'position: absolute; top: 0; left: 0; width: 100%; padding: 20px; display: flex; justify-content: flex-end; gap: 10px; z-index: 1002; pointer-events: none;'
+      });
+
+      // Play/Pause (Left of Close)
+      this.popupPlayBtn = createElement('button', '', {
+          style: 'pointer-events: auto; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px;',
+          onClick: (e) => { e.stopPropagation(); this.togglePlay(); }
+      }, this.status === 'RUNNING' ? '⏸' : '▶');
+
+      // Close (Top Right)
+      const closeBtn = createElement('button', '', {
+          style: 'pointer-events: auto; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 24px;',
+          onClick: (e) => { e.stopPropagation(); this.closePopup(); }
+      }, '✕');
+
+      header.appendChild(this.popupPlayBtn);
+      header.appendChild(closeBtn);
+      this.popupEl.appendChild(header);
+
+      // Media Container (Center)
+      this.popupMediaContainer = createElement('div', 'popup-media-container', {
+          style: 'flex: 1; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1001;'
+      });
+      this.popupEl.appendChild(this.popupMediaContainer);
+
+      // Bottom Info (Overlay)
+      const bottomInfo = createElement('div', 'popup-bottom-info', {
+          style: 'position: absolute; bottom: 0; left: 0; width: 100%; padding: 40px 20px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); color: white; z-index: 1002; text-align: center; display: flex; flex-direction: column; align-items: center;'
+      });
+
+      this.popupTitleEl = createElement('h2', '', { style: 'margin: 0 0 10px 0; font-size: 24px; text-shadow: 0 2px 4px black;' }, '');
+      this.popupTimerEl = createElement('div', '', { style: 'font-size: 60px; font-weight: bold; font-variant-numeric: tabular-nums; text-shadow: 0 2px 4px black;' }, '00:00');
+
+      bottomInfo.appendChild(this.popupTitleEl);
+      bottomInfo.appendChild(this.popupTimerEl);
+      this.popupEl.appendChild(bottomInfo);
+
+      this.container.appendChild(this.popupEl);
+  }
+
+  openPopup() {
+      if (!this.popupEl) return;
+      this.isPopupOpen = true;
+      this.popupEl.style.display = 'flex';
+      this.updatePopupContent();
+  }
+
+  closePopup() {
+      if (!this.popupEl) return;
+      this.isPopupOpen = false;
+      this.popupEl.style.display = 'none';
+  }
+
+  updatePopupContent() {
+      if (!this.isPopupOpen) return;
+      const item = this.playlist[this.currentIndex];
+      if (!item) return;
+
+      // Update Title
+      if (this.popupTitleEl) {
+          this.popupTitleEl.textContent = item.type === 'REST' ? 'Rest' : item.step.name;
+      }
+
+      // Update Timer
+      if (this.popupTimerEl && this.timerEl) {
+          this.popupTimerEl.textContent = this.timerEl.textContent;
+      }
+
+      // Update Play Button
+      if (this.popupPlayBtn) {
+          this.popupPlayBtn.textContent = this.status === 'RUNNING' ? '⏸' : '▶';
+      }
+
+      // Update Media
+      if (this.popupMediaContainer) {
+          this.popupMediaContainer.innerHTML = '';
+          const mediaObj = item.type === 'STEP' ? item.step.media : null;
+
+          if (mediaObj) {
+               if ((!mediaObj.source || mediaObj.source === 'FILE') && this.mediaBlobUrl) {
+                  const img = createElement('img', '', { src: this.mediaBlobUrl, style: 'width: 100%; height: 100%; object-fit: contain;' });
+                  this.popupMediaContainer.appendChild(img);
+              } else if (mediaObj.source === 'URL' && mediaObj.url) {
+                  const element = this.createUrlMediaElement(mediaObj.url);
+                  // Ensure iframe doesn't block clicks if we want to support tap-to-show-controls?
+                  // But we have fixed controls.
+                  if (element) this.popupMediaContainer.appendChild(element);
+              }
+          } else {
+               // Placeholder text or just black?
+               const msg = createElement('div', '', { style: 'color: #666;' }, "No Media");
+               this.popupMediaContainer.appendChild(msg);
+          }
+      }
   }
 
   updateBackgroundMedia(item) {
@@ -625,6 +762,7 @@ export class PlayerView {
       const item = this.playlist[this.currentIndex];
 
       this.updateBackgroundMedia(item);
+      this.updatePopupContent();
 
       if (!item) {
           this.contentEl.textContent = "Empty Playlist";
@@ -717,6 +855,10 @@ export class PlayerView {
   }
 
   renderControls() {
+      if (this.popupPlayBtn) {
+          this.popupPlayBtn.textContent = this.status === 'RUNNING' ? '⏸' : '▶';
+      }
+
       if (!this.controlsContainer) return;
       this.controlsContainer.innerHTML = '';
 

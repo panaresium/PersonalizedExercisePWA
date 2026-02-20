@@ -152,7 +152,23 @@ export class SettingsView {
         'aria-label': "Delay between Beep and Timer Start"
     });
 
-    timingContainer.append(delayTtsLabel, delayTtsInput, delayNameInstLabel, delayNameInstInput, delayBeepLabel, delayBeepInput);
+    // Auto-popup Media Delay
+    const autoPopupLabel = createElement('div', '', { style: 'margin-top: 16px; margin-bottom: 8px; display: flex; justify-content: space-between;' },
+        "Auto-popup Media Delay",
+        createElement('span', '', {}, (this.state.settings.autoPopupMediaDelay > 0 ? `${this.state.settings.autoPopupMediaDelay}s` : "Disabled"))
+    );
+    const autoPopupInput = createElement('input', '', {
+        type: 'range',
+        min: 0,
+        max: 10,
+        step: 1,
+        value: this.state.settings.autoPopupMediaDelay ?? 0,
+        style: 'width: 100%;',
+        onInput: (e) => this.updateSetting('autoPopupMediaDelay', parseFloat(e.target.value)),
+        'aria-label': "Delay before auto-popping up media"
+    });
+
+    timingContainer.append(delayTtsLabel, delayTtsInput, delayNameInstLabel, delayNameInstInput, delayBeepLabel, delayBeepInput, autoPopupLabel, autoPopupInput);
     content.appendChild(timingContainer);
 
     // TTS

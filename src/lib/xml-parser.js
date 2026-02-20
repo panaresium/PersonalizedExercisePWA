@@ -110,17 +110,12 @@ export const serializeProjectToXml = (projectId, state, mediaPrefix = 'media') =
 
 export const parseProjectXml = (xmlString) => {
     // Sanitize input: Use Regex to extract the XML block
-    // This handles "Here is your code:\n```xml\n<Project...>\n```" and simple ````XML`
-    // It looks for the first occurrence of <ProjectExport or <Project
-
-    // First, try to strip markdown code blocks completely if they wrap the content
     const codeBlockMatch = xmlString.match(/```(?:xml)?\s*([\s\S]*?)\s*```/i);
     if (codeBlockMatch) {
         xmlString = codeBlockMatch[1];
     }
 
-    // Second, just in case there's still text before/after (like "Here is the code: <Project>...</Project>"),
-    // find the first tag that looks like our root.
+    // Find the first tag that looks like our root.
     const rootMatch = xmlString.match(/<(ProjectExport|Project)\b[\s\S]*<\/\1>/);
     if (rootMatch) {
         xmlString = rootMatch[0];
@@ -137,10 +132,31 @@ export const parseProjectXml = (xmlString) => {
         throw new Error(`XML Parse Error: ${parserError.textContent}`);
     }
 
+    const oldIdMap = new Map();
+    const getNewId = (oldId) => {
+        if (!oldId || oldId.trim() === '') return generateId();
+        if (!oldIdMap.has(oldId)) oldIdMap.set(oldId, generateId());
+        return oldIdMap.get(oldId);
+    }
+
     const projectEl = doc.querySelector("Project");
 
-    if (!projectEl) throw new Error("Invalid XML: No Project element found");
+    if (projectEl) {
+        return parseStandardProject(projectEl, getNewId, oldIdMap);
+    }
 
+    // Fallback: Check for Metadata/ExerciseLibrary at root (or under ProjectExport)
+    const metadataEl = doc.querySelector("Metadata");
+    const exerciseLibEl = doc.querySelector("ExerciseLibrary");
+
+    if (metadataEl || exerciseLibEl) {
+        return parseFlatProject(doc, getNewId, oldIdMap);
+    }
+
+    throw new Error("Invalid XML: Could not find <Project> element, nor a valid alternative structure (Metadata + ExerciseLibrary). Please check your XML format.");
+};
+
+const parseStandardProject = (projectEl, getNewId, oldIdMap) => {
     const newState = {
         projects: {},
         exerciseSets: {},
@@ -148,17 +164,10 @@ export const parseProjectXml = (xmlString) => {
         beepCodes: {}
     };
 
-    const oldIdMap = new Map();
-
-    const getNewId = (oldId) => {
-        if (!oldIdMap.has(oldId)) oldIdMap.set(oldId, generateId());
-        return oldIdMap.get(oldId);
-    }
-
     // Project
     const projectId = getNewId(projectEl.getAttribute("id"));
 
-    // Resolve Name: Attribute -> Direct Child -> Deep Child (fallback)
+    // Resolve Name
     let name = projectEl.getAttribute("name");
     if (!name) {
         const directName = Array.from(projectEl.children).find(el => el.tagName === "Name");
@@ -166,7 +175,7 @@ export const parseProjectXml = (xmlString) => {
     }
     name = name || "Imported Project";
 
-    // Resolve Description: Attribute -> Direct Child (Description/Summary) -> Deep Child
+    // Resolve Description
     let description = projectEl.getAttribute("description");
     if (!description) {
         const directDesc = Array.from(projectEl.children).find(el => ["Description", "Summary"].includes(el.tagName));
@@ -220,57 +229,210 @@ export const parseProjectXml = (xmlString) => {
                     const stepId = getNewId(stepEl.getAttribute("id"));
                     newState.exerciseSets[setId].stepIds.push(stepId);
 
-                    const beepRefEl = stepEl.querySelector("Beep");
-                    const beepRefs = {};
-                    if (beepRefEl) {
-                        for (const attr of beepRefEl.attributes) {
-                             const oldBeepId = attr.value;
-                             if (["onStart", "onEnd", "interval", "countdown"].includes(attr.name)) {
-                                 beepRefs[attr.name] = oldIdMap.get(oldBeepId) || oldBeepId;
-                             } else {
-                                 beepRefs[attr.name] = attr.value;
-                             }
-                        }
-                    }
-
-                    newState.exerciseSteps[stepId] = {
-                        id: stepId,
-                        name: stepEl.querySelector("Name")?.textContent || "Untitled Step",
-                        durationSec: parseInt(stepEl.querySelector("DurationSec")?.textContent || 0),
-                        instructions: stepEl.querySelector("Instructions")?.textContent || "",
-                        beep: beepRefs
-                    };
-
-                    // Media
-                    const mediaEl = stepEl.querySelector("Media");
-                    if (mediaEl) {
-                        const path = mediaEl.getAttribute("path");
-                        const url = mediaEl.getAttribute("url");
-                        const source = mediaEl.getAttribute("source") || (path ? 'FILE' : (url ? 'URL' : null));
-
-                        let mediaObj = {
-                             type: mediaEl.getAttribute("type") || 'GIF',
-                             frameDurationSec: parseFloat(mediaEl.getAttribute("frameDurationSec") || 0.1),
-                             loop: mediaEl.getAttribute("loop") !== "false",
-                             source: source,
-                             url: url || null
-                        };
-
-                        if (path) {
-                            const filename = path.split('/').pop();
-                            const localPath = `opfs://${projectId}/imported/${filename}`;
-                            mediaObj.path = localPath;
-                            mediaObj.filename = filename;
-                        }
-
-                        if (mediaObj.source) {
-                            newState.exerciseSteps[stepId].media = mediaObj;
-                        }
-                    }
+                    // Parse Step
+                    newState.exerciseSteps[stepId] = parseStep(stepEl, getNewId, oldIdMap, projectId);
                 });
             }
         });
     }
 
     return newState;
+};
+
+const parseFlatProject = (doc, getNewId, oldIdMap) => {
+    const newState = {
+        projects: {},
+        exerciseSets: {},
+        exerciseSteps: {},
+        beepCodes: {}
+    };
+
+    const projectId = getNewId("imported_project");
+
+    // Extract Metadata
+    let name = "Imported Project";
+    let description = "";
+
+    const metadataEl = doc.querySelector("Metadata");
+    if (metadataEl) {
+        const titleEl = metadataEl.querySelector("Title");
+        if (titleEl) name = titleEl.textContent;
+
+        const descEl = metadataEl.querySelector("Description");
+        if (descEl) description = descEl.textContent;
+    }
+
+    newState.projects[projectId] = {
+        id: projectId,
+        name: name,
+        description: description,
+        exerciseSetIds: []
+    };
+
+    // Extract Beeps (Handle <Beep> alias for <BeepCode>, and Name child for label)
+    const beepLibrary = doc.querySelector("BeepLibrary");
+    if (beepLibrary) {
+        // Look for both BeepCode and Beep tags
+        const beepEls = [...beepLibrary.querySelectorAll("BeepCode"), ...beepLibrary.querySelectorAll("Beep")];
+        beepEls.forEach(beepEl => {
+            const oldBeepId = beepEl.getAttribute("id");
+            // Label: attribute 'label' OR child <Name>
+            let label = beepEl.getAttribute("label");
+            if (!label) {
+                const nameChild = beepEl.querySelector("Name");
+                if (nameChild) label = nameChild.textContent;
+            }
+            const pattern = beepEl.querySelector("Pattern")?.textContent;
+
+            const newBeepId = getNewId(oldBeepId);
+            newState.beepCodes[newBeepId] = {
+                id: newBeepId,
+                label: label || oldBeepId,
+                pattern
+            };
+        });
+    }
+
+    // Create a default Set
+    const setId = getNewId("default_set");
+    newState.projects[projectId].exerciseSetIds.push(setId);
+    newState.exerciseSets[setId] = {
+        id: setId,
+        title: "Main Workout",
+        mode: "STEP_SEQUENCE",
+        rounds: 1,
+        restBetweenRoundsSec: 0,
+        stepIds: []
+    };
+
+    // Extract Exercises as Steps
+    const exerciseLibrary = doc.querySelector("ExerciseLibrary");
+    if (exerciseLibrary) {
+        const exercises = exerciseLibrary.querySelectorAll("Exercise");
+        exercises.forEach((exEl, index) => {
+            const stepId = getNewId(exEl.getAttribute("id"));
+            newState.exerciseSets[setId].stepIds.push(stepId);
+
+            // Mapping Exercise -> Step
+            // Name -> Name
+            // Description -> Instructions
+            // DurationSec -> DurationSec (if missing, default to 30)
+
+            const name = exEl.querySelector("Name")?.textContent || "Untitled Exercise";
+
+            // Description -> Instructions
+            // Also check for Instructions tag just in case
+            let instructions = exEl.querySelector("Instructions")?.textContent;
+            if (!instructions) {
+                instructions = exEl.querySelector("Description")?.textContent || "";
+            }
+
+            // Duration
+            let durationSec = 30; // Default
+            const durEl = exEl.querySelector("DurationSec") || exEl.querySelector("Duration") || exEl.querySelector("Time");
+            if (durEl) {
+                durationSec = parseInt(durEl.textContent);
+            }
+
+            // Beeps
+            const beepRefEl = exEl.querySelector("Beep");
+            const beepRefs = {};
+            if (beepRefEl) {
+                for (const attr of beepRefEl.attributes) {
+                     const oldBeepId = attr.value;
+                     if (["onStart", "onEnd", "interval", "countdown"].includes(attr.name)) {
+                         beepRefs[attr.name] = oldIdMap.get(oldBeepId) || oldBeepId;
+                     } else {
+                         beepRefs[attr.name] = attr.value;
+                     }
+                }
+            }
+
+            // Media
+            let mediaObj = undefined;
+            const mediaEl = exEl.querySelector("Media");
+            if (mediaEl) {
+                 const path = mediaEl.getAttribute("path");
+                 const url = mediaEl.getAttribute("url");
+                 const source = mediaEl.getAttribute("source") || (path ? 'FILE' : (url ? 'URL' : null));
+
+                 mediaObj = {
+                     type: mediaEl.getAttribute("type") || 'GIF',
+                     frameDurationSec: parseFloat(mediaEl.getAttribute("frameDurationSec") || 0.1),
+                     loop: mediaEl.getAttribute("loop") !== "false",
+                     source: source,
+                     url: url || null
+                 };
+
+                 if (path) {
+                    const filename = path.split('/').pop();
+                    // Use projectId in path
+                    const localPath = `opfs://${projectId}/imported/${filename}`;
+                    mediaObj.path = localPath;
+                    mediaObj.filename = filename;
+                 }
+            }
+
+            newState.exerciseSteps[stepId] = {
+                id: stepId,
+                name,
+                durationSec,
+                instructions,
+                beep: beepRefs,
+                media: mediaObj
+            };
+        });
+    }
+
+    return newState;
+}
+
+// Helper to parse a single step (refactored from original)
+const parseStep = (stepEl, getNewId, oldIdMap, projectId) => {
+    const stepId = getNewId(stepEl.getAttribute("id"));
+
+    const beepRefEl = stepEl.querySelector("Beep");
+    const beepRefs = {};
+    if (beepRefEl) {
+        for (const attr of beepRefEl.attributes) {
+                const oldBeepId = attr.value;
+                if (["onStart", "onEnd", "interval", "countdown"].includes(attr.name)) {
+                    beepRefs[attr.name] = oldIdMap.get(oldBeepId) || oldBeepId;
+                } else {
+                    beepRefs[attr.name] = attr.value;
+                }
+        }
+    }
+
+    let mediaObj = undefined;
+    const mediaEl = stepEl.querySelector("Media");
+    if (mediaEl) {
+        const path = mediaEl.getAttribute("path");
+        const url = mediaEl.getAttribute("url");
+        const source = mediaEl.getAttribute("source") || (path ? 'FILE' : (url ? 'URL' : null));
+
+        mediaObj = {
+                type: mediaEl.getAttribute("type") || 'GIF',
+                frameDurationSec: parseFloat(mediaEl.getAttribute("frameDurationSec") || 0.1),
+                loop: mediaEl.getAttribute("loop") !== "false",
+                source: source,
+                url: url || null
+        };
+
+        if (path) {
+            const filename = path.split('/').pop();
+            const localPath = `opfs://${projectId}/imported/${filename}`;
+            mediaObj.path = localPath;
+            mediaObj.filename = filename;
+        }
+    }
+
+    return {
+        id: stepId,
+        name: stepEl.querySelector("Name")?.textContent || "Untitled Step",
+        durationSec: parseInt(stepEl.querySelector("DurationSec")?.textContent || 0),
+        instructions: stepEl.querySelector("Instructions")?.textContent || "",
+        beep: beepRefs,
+        media: mediaObj
+    };
 };

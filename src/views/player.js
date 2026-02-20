@@ -646,6 +646,13 @@ export class PlayerView {
       });
 
       // Play/Pause (Left of Close)
+      // Next (Left of Play)
+      const nextBtn = createElement('button', '', {
+          style: 'pointer-events: auto; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px;',
+          onClick: (e) => { e.stopPropagation(); this.next(); }
+      }, '⏭');
+
+      // Play/Pause (Left of Close)
       this.popupPlayBtn = createElement('button', '', {
           style: 'pointer-events: auto; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px;',
           onClick: (e) => { e.stopPropagation(); this.togglePlay(); }
@@ -657,9 +664,23 @@ export class PlayerView {
           onClick: (e) => { e.stopPropagation(); this.closePopup(); }
       }, '✕');
 
+      header.appendChild(nextBtn);
       header.appendChild(this.popupPlayBtn);
       header.appendChild(closeBtn);
       this.popupEl.appendChild(header);
+
+      // Top Info (Title/Description)
+      const topInfo = createElement('div', 'popup-top-info', {
+          style: 'position: absolute; top: 80px; left: 0; width: 100%; padding: 0 20px; color: white; z-index: 1002; text-align: center; pointer-events: none;'
+      });
+      this.popupTitleEl = createElement('h2', '', { style: 'margin: 0; font-size: 24px; text-shadow: 0 2px 4px black; text-transform: uppercase; letter-spacing: 1px;' }, '');
+      // Add description/instructions if needed, but keeping simple for now as requested "step name and description/info"
+      this.popupDescEl = createElement('p', '', { style: 'margin: 8px 0 0; font-size: 16px; color: rgba(255,255,255,0.9); text-shadow: 0 2px 4px black; max-width: 600px; margin-left: auto; margin-right: auto;' }, '');
+
+      topInfo.appendChild(this.popupTitleEl);
+      topInfo.appendChild(this.popupDescEl);
+      this.popupEl.appendChild(topInfo);
+
 
       // Media Container (Center)
       this.popupMediaContainer = createElement('div', 'popup-media-container', {
@@ -667,16 +688,16 @@ export class PlayerView {
       });
       this.popupEl.appendChild(this.popupMediaContainer);
 
-      // Bottom Info (Overlay)
+      // Bottom Info (Timer + Next Pose)
       const bottomInfo = createElement('div', 'popup-bottom-info', {
           style: 'position: absolute; bottom: 0; left: 0; width: 100%; padding: 40px 20px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); color: white; z-index: 1002; text-align: center; display: flex; flex-direction: column; align-items: center;'
       });
 
-      this.popupTitleEl = createElement('h2', '', { style: 'margin: 0 0 10px 0; font-size: 24px; text-shadow: 0 2px 4px black;' }, '');
-      this.popupTimerEl = createElement('div', '', { style: 'font-size: 60px; font-weight: bold; font-variant-numeric: tabular-nums; text-shadow: 0 2px 4px black;' }, '00:00');
+      this.popupTimerEl = createElement('div', '', { style: 'font-size: 80px; font-weight: bold; font-variant-numeric: tabular-nums; text-shadow: 0 2px 4px black; line-height: 1;' }, '00:00');
+      this.popupNextEl = createElement('div', '', { style: 'margin-top: 10px; font-size: 16px; color: rgba(255,255,255,0.8); text-shadow: 0 2px 4px black; font-weight: 500;' }, '');
 
-      bottomInfo.appendChild(this.popupTitleEl);
       bottomInfo.appendChild(this.popupTimerEl);
+      bottomInfo.appendChild(this.popupNextEl);
       this.popupEl.appendChild(bottomInfo);
 
       this.container.appendChild(this.popupEl);
@@ -705,9 +726,30 @@ export class PlayerView {
           this.popupTitleEl.textContent = item.type === 'REST' ? 'Rest' : item.step.name;
       }
 
+      // Update Description
+      if (this.popupDescEl) {
+          if (item.type === 'STEP' && item.step.instructions) {
+              this.popupDescEl.textContent = item.step.instructions;
+              this.popupDescEl.style.display = 'block';
+          } else {
+              this.popupDescEl.style.display = 'none';
+          }
+      }
+
       // Update Timer
       if (this.popupTimerEl && this.timerEl) {
           this.popupTimerEl.textContent = this.timerEl.textContent;
+      }
+
+      // Update Next Pose Info
+      if (this.popupNextEl) {
+          const nextItem = this.playlist[this.currentIndex + 1];
+          if (nextItem) {
+              const nextName = nextItem.type === 'STEP' ? nextItem.step.name : 'Rest';
+              this.popupNextEl.textContent = `Next: ${nextName}`;
+          } else {
+              this.popupNextEl.textContent = "Last Step";
+          }
       }
 
       // Update Play Button

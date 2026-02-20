@@ -82,8 +82,12 @@ export const Modal = ({ title, children, onCancel, onConfirm, confirmLabel = "OK
   children.forEach(child => content.appendChild(child));
 
   const actions = createElement('div', 'modal-actions', {});
-  actions.appendChild(Button({ label: cancelLabel, onClick: onCancel, type: 'secondary' }));
-  actions.appendChild(Button({ label: confirmLabel, onClick: onConfirm, type: confirmType }));
+  if (cancelLabel) {
+    actions.appendChild(Button({ label: cancelLabel, onClick: onCancel, type: 'secondary' }));
+  }
+  if (confirmLabel) {
+    actions.appendChild(Button({ label: confirmLabel, onClick: onConfirm, type: confirmType }));
+  }
 
   content.appendChild(actions);
   overlay.appendChild(content);

@@ -5,6 +5,7 @@ import { generateId } from '../lib/utils.js';
 import { readImportPackage, createExportPackage } from '../lib/zip-manager.js';
 import { parseProjectXml, serializeProjectToXml } from '../lib/xml-parser.js';
 import { saveMedia, getMediaBlob } from '../lib/storage.js';
+import { ImportPreviewModal, ImportResultModal, ErrorDetailModal } from '../components/import-modals.js';
 
 export class ProjectsListView {
   constructor() {
@@ -45,168 +46,269 @@ export class ProjectsListView {
       input.type = 'file';
       input.accept = '.zip, .xml';
       input.multiple = true;
-      input.onchange = async (e) => {
-          if (!e.target.files || e.target.files.length === 0) return;
+      input.onchange = (e) => this.handleImportFiles(e.target.files);
+      input.click();
+  }
 
-          try {
-              const files = Array.from(e.target.files);
-              const mergedState = {
-                  projects: {},
-                  exerciseSets: {},
-                  exerciseSteps: {},
-                  beepCodes: {}
-              };
+  async handleImportFiles(files) {
+      if (!files || files.length === 0) return;
 
-              const existingBeepMap = new Map();
-              Object.values(this.state.beepCodes || {}).forEach(b => existingBeepMap.set(b.label, b.id));
-              const batchBeepMap = new Map();
-              const ignoredBeepLabels = new Set();
+      try {
+          const fileList = Array.from(files);
+          const rawData = { xmls: [], mediaFiles: [] };
 
-              for (const file of files) {
-                  let xmls = [];
-                  let mediaFiles = [];
-                  let isXmlImport = false;
-
-                  if (file.name.toLowerCase().endsWith('.xml')) {
-                      xmls = [await file.text()];
-                      isXmlImport = true;
-                  } else if (file.name.toLowerCase().endsWith('.zip')) {
+          for (const file of fileList) {
+              if (file.name.toLowerCase().endsWith('.xml')) {
+                  rawData.xmls.push({ path: file.name, content: await file.text() });
+              } else if (file.name.toLowerCase().endsWith('.zip')) {
+                  try {
                       const packageData = await readImportPackage(file);
-                      xmls = packageData.xmls;
-                      mediaFiles = packageData.mediaFiles;
-                  } else {
-                      continue; // Skip unknown files
+                      rawData.xmls.push(...packageData.xmls);
+                      rawData.mediaFiles.push(...packageData.mediaFiles);
+                  } catch (e) {
+                      console.error("ZIP read error", e);
+                      // Append error to a list? For now just log and continue if possible
+                      throw new Error(`Failed to read ZIP ${file.name}: ${e.message}`);
                   }
+              }
+          }
 
-                  // Parse XMLs first
-                  const fileParsedState = {
-                      projects: {},
-                      exerciseSets: {},
-                      exerciseSteps: {},
-                      beepCodes: {}
-                  };
+          if (rawData.xmls.length === 0) {
+              throw new Error("No valid project XML files found.");
+          }
 
-                  for (const xml of xmls) {
-                      const fragment = parseProjectXml(xml);
-                      Object.assign(fileParsedState.projects, fragment.projects);
-                      Object.assign(fileParsedState.exerciseSets, fragment.exerciseSets);
-                      Object.assign(fileParsedState.exerciseSteps, fragment.exerciseSteps);
-                      Object.assign(fileParsedState.beepCodes, fragment.beepCodes);
-                  }
+          const analysis = await this.analyzeImport(rawData);
 
-                  // Handle Media (ZIP only)
-                  const mediaMap = new Map(); // zipRelativePath -> savedLocalStoragePath
-                  if (!isXmlImport && mediaFiles && mediaFiles.length > 0) {
-                      await Promise.all(mediaFiles.map(async ({ filename, blob }) => {
-                          const parts = filename.split('/');
-                          let assetId = 'shared';
-                          let finalFilename = parts.pop();
+          this.container.appendChild(ImportPreviewModal({
+              projects: analysis.projects.map(p => ({
+                  originalName: p.originalName,
+                  finalName: p.finalName,
+                  mediaFound: p.mediaFound,
+                  mediaMissing: p.mediaMissing
+              })),
+              warnings: analysis.warnings,
+              onCancel: () => this.refresh(),
+              onConfirm: () => this.executeImport(analysis)
+          }));
 
-                          if (parts.length > 1) {
-                              assetId = parts[1];
-                          }
+      } catch (err) {
+          console.error("Import preparation failed", err);
+          this.container.appendChild(ErrorDetailModal({ error: err, onClose: () => this.refresh() }));
+      }
+  }
 
-                          const { path } = await saveMedia('imported', assetId, finalFilename, blob);
-                          mediaMap.set(filename, path);
-                      }));
-                  }
+  async analyzeImport(rawData) {
+      const projectsToImport = [];
+      const warnings = [];
 
-                  // Patch media paths in steps
-                  Object.values(fileParsedState.exerciseSteps).forEach(step => {
-                      if (isXmlImport) {
-                          // XML Import: Keep media if it's external (URL), remove local path references if invalid
-                          // But wait, if source="URL", we keep it.
-                          // If source="FILE", we delete it because we don't have the file.
-                          // However, some users might import XML referencing local files they plan to add later?
-                          // Current logic: Delete if strictly local file ref to avoid broken state, keep if URL.
-                          if (step.media) {
-                               const isUrl = step.media.source === 'URL' || (step.media.url && step.media.url.startsWith('http'));
-                               if (!isUrl) {
-                                   if (step.media.source === 'FILE' || step.media.path || step.media.filename) {
-                                       delete step.media;
-                                   }
-                               }
-                          }
+      const existingProjectNames = new Set(Object.values(this.state.projects).map(p => p.name));
+      const mediaFiles = rawData.mediaFiles; // [{ path, blob }]
+
+      for (const xmlFile of rawData.xmls) {
+          try {
+              const fragment = parseProjectXml(xmlFile.content);
+              // fragment contains keys: projects, exerciseSets, exerciseSteps, beepCodes
+              // parseProjectXml generates new IDs.
+
+              // Find the project object (there should be one per XML usually)
+              const projectKeys = Object.keys(fragment.projects);
+              if (projectKeys.length === 0) continue;
+
+              const project = fragment.projects[projectKeys[0]];
+              const originalName = project.name;
+
+              // 1. Resolve Name Conflict
+              let finalName = originalName;
+              let suffix = 1;
+              while (existingProjectNames.has(finalName)) {
+                  finalName = `${originalName} (${suffix})`;
+                  suffix++;
+              }
+              // Mark name as taken for subsequent iterations in this batch
+              existingProjectNames.add(finalName);
+              project.name = finalName;
+
+              // 2. Map Media
+              let mediaFoundCount = 0;
+              let mediaMissingCount = 0;
+              const mediaToSave = []; // { blob, storageFilename, originalPathInZip, linkedSteps: [step] }
+
+              const steps = Object.values(fragment.exerciseSteps);
+              for (const step of steps) {
+                  if (step.media && step.media.filename) { // Check filename populated by parseProjectXml
+                      const targetFilename = step.media.filename;
+                      const xmlPathDir = xmlFile.path.includes('/') ? xmlFile.path.substring(0, xmlFile.path.lastIndexOf('/')) : '';
+
+                      // Heuristic Search
+                      let bestMatch = null;
+                      const candidates = mediaFiles.filter(m => m.path.endsWith(targetFilename));
+
+                      if (candidates.length === 0) {
+                          mediaMissingCount++;
+                      } else if (candidates.length === 1) {
+                          bestMatch = candidates[0];
                       } else {
-                          // ZIP Import: Patch paths
-                          if (step.media && step.media.path) {
-                               let savedPath = mediaMap.get(step.media.path);
+                          // Multiple candidates. Prefer same directory.
+                          const sameDirMatch = candidates.find(m => {
+                               const mDir = m.path.includes('/') ? m.path.substring(0, m.path.lastIndexOf('/')) : '';
+                               return mDir === xmlPathDir;
+                          });
 
-                               if (!savedPath && step.media.filename) {
-                                   for (const [zipPath, storagePath] of mediaMap.entries()) {
-                                       if (zipPath.endsWith(step.media.filename)) {
-                                           savedPath = storagePath;
-                                           break;
-                                       }
-                                   }
-                               }
-
-                               if (savedPath) {
-                                   step.media.path = savedPath;
-                               } else if (step.media.source === 'FILE') {
-                                   console.warn("Missing media for step", step.id, step.media);
-                               }
+                          if (sameDirMatch) {
+                              bestMatch = sameDirMatch;
+                          } else {
+                              // Ambiguous. Pick the first one? Or strict?
+                              bestMatch = candidates[0];
                           }
                       }
-                  });
 
-                  // Deduplicate Beep Codes
-                  const idRemap = new Map();
-                  for (const beepId of Object.keys(fileParsedState.beepCodes)) {
-                      const beep = fileParsedState.beepCodes[beepId];
-                      const label = beep.label;
+                      if (bestMatch) {
+                          mediaFoundCount++;
 
-                      const existingId = existingBeepMap.get(label) || batchBeepMap.get(label);
+                          // Check if we already have this filename in `mediaToSave` for this project.
+                          const existingSave = mediaToSave.find(m => m.storageFilename === targetFilename);
+                          if (existingSave) {
+                              if (existingSave.blob !== bestMatch.blob) {
+                                  // Conflict: same filename, different content in same project.
+                                  // Rename the new one.
+                                  const ext = targetFilename.split('.').pop();
+                                  const name = targetFilename.substring(0, targetFilename.lastIndexOf('.'));
+                                  const newFilename = `${name}_${generateId().substring(0,4)}.${ext}`;
 
-                      if (existingId) {
-                          idRemap.set(beepId, existingId);
-                          ignoredBeepLabels.add(label);
-                          delete fileParsedState.beepCodes[beepId];
-                      } else {
-                          batchBeepMap.set(label, beepId);
+                                  mediaToSave.push({
+                                      blob: bestMatch.blob,
+                                      storageFilename: newFilename,
+                                      originalPath: bestMatch.path,
+                                      linkedSteps: [step]
+                                  });
+
+                              } else {
+                                  // Same blob, same filename. Reuse.
+                                  existingSave.linkedSteps.push(step);
+                              }
+                          } else {
+                              mediaToSave.push({
+                                  blob: bestMatch.blob,
+                                  storageFilename: targetFilename,
+                                  originalPath: bestMatch.path,
+                                  linkedSteps: [step]
+                              });
+                          }
                       }
                   }
-
-                  // Remap steps to use existing/batch beep IDs
-                  if (idRemap.size > 0) {
-                       Object.values(fileParsedState.exerciseSteps).forEach(step => {
-                           if (step.beep) {
-                               Object.keys(step.beep).forEach(key => {
-                                   const val = step.beep[key];
-                                   if (idRemap.has(val)) {
-                                       step.beep[key] = idRemap.get(val);
-                                   }
-                               });
-                           }
-                       });
-                  }
-
-                  // Merge into main accumulator
-                  Object.assign(mergedState.projects, fileParsedState.projects);
-                  Object.assign(mergedState.exerciseSets, fileParsedState.exerciseSets);
-                  Object.assign(mergedState.exerciseSteps, fileParsedState.exerciseSteps);
-                  Object.assign(mergedState.beepCodes, fileParsedState.beepCodes);
               }
 
-              if (ignoredBeepLabels.size > 0) {
-                  alert(`Ignored duplicated beep codes: ${Array.from(ignoredBeepLabels).join(', ')}`);
-              }
-
-              updateState(state => {
-                  const newState = { ...state };
-                  newState.projects = { ...newState.projects, ...mergedState.projects };
-                  newState.exerciseSets = { ...newState.exerciseSets, ...mergedState.exerciseSets };
-                  newState.exerciseSteps = { ...newState.exerciseSteps, ...mergedState.exerciseSteps };
-                  newState.beepCodes = { ...newState.beepCodes, ...mergedState.beepCodes };
-                  return newState;
+              projectsToImport.push({
+                  originalName,
+                  finalName,
+                  fragment,
+                  mediaToSave,
+                  mediaFound: mediaFoundCount,
+                  mediaMissing: mediaMissingCount
               });
 
-          } catch (err) {
-              console.error("Import failed", err);
-              alert("Import failed: " + err.message);
+          } catch (e) {
+              warnings.push(`Failed to parse XML ${xmlFile.path}: ${e.message}`);
           }
+      }
+
+      return { projects: projectsToImport, warnings };
+  }
+
+  async executeImport(analysis) {
+      const results = [];
+      const mergedState = {
+          projects: {},
+          exerciseSets: {},
+          exerciseSteps: {},
+          beepCodes: {}
       };
-      input.click();
+
+      // Existing Beep Handling (Deduplication)
+      const existingBeepMap = new Map();
+      Object.values(this.state.beepCodes || {}).forEach(b => existingBeepMap.set(b.label, b.id));
+      const batchBeepMap = new Map();
+
+      for (const item of analysis.projects) {
+          try {
+              const { fragment, mediaToSave } = item;
+              const projectId = fragment.projects[Object.keys(fragment.projects)[0]].id;
+
+              // 1. Save Media
+              for (const media of mediaToSave) {
+                  try {
+                       const { path } = await saveMedia(projectId, 'imported', media.storageFilename, media.blob);
+
+                       // Update linked steps with the actual saved path
+                       media.linkedSteps.forEach(step => {
+                           step.media.path = path;
+                           step.media.filename = media.storageFilename;
+                       });
+
+                  } catch (e) {
+                      results.push({ type: 'error', message: `Failed to save media ${media.storageFilename}: ${e.message}` });
+                  }
+              }
+
+              // 2. Deduplicate Beeps for this project
+              const idRemap = new Map();
+              for (const beepId of Object.keys(fragment.beepCodes)) {
+                  const beep = fragment.beepCodes[beepId];
+                  const label = beep.label;
+                  const existingId = existingBeepMap.get(label) || batchBeepMap.get(label);
+
+                  if (existingId) {
+                      idRemap.set(beepId, existingId);
+                      delete fragment.beepCodes[beepId];
+                  } else {
+                      batchBeepMap.set(label, beepId);
+                  }
+              }
+
+              if (idRemap.size > 0) {
+                  Object.values(fragment.exerciseSteps).forEach(step => {
+                      if (step.beep) {
+                          Object.keys(step.beep).forEach(key => {
+                              const val = step.beep[key];
+                              if (idRemap.has(val)) {
+                                  step.beep[key] = idRemap.get(val);
+                              }
+                          });
+                      }
+                  });
+              }
+
+              // 3. Merge Data
+              Object.assign(mergedState.projects, fragment.projects);
+              Object.assign(mergedState.exerciseSets, fragment.exerciseSets);
+              Object.assign(mergedState.exerciseSteps, fragment.exerciseSteps);
+              Object.assign(mergedState.beepCodes, fragment.beepCodes);
+
+              results.push({ type: 'success', message: `Imported project "${item.finalName}"` });
+
+          } catch (e) {
+              results.push({ type: 'error', message: `Failed to import project ${item.finalName}: ${e.message}` });
+          }
+      }
+
+      analysis.warnings.forEach(w => results.push({ type: 'warning', message: w }));
+
+      // Update Global State
+      try {
+          updateState(state => {
+              const newState = { ...state };
+              newState.projects = { ...newState.projects, ...mergedState.projects };
+              newState.exerciseSets = { ...newState.exerciseSets, ...mergedState.exerciseSets };
+              newState.exerciseSteps = { ...newState.exerciseSteps, ...mergedState.exerciseSteps };
+              newState.beepCodes = { ...newState.beepCodes, ...mergedState.beepCodes };
+              return newState;
+          });
+      } catch (e) {
+          results.push({ type: 'error', message: `Failed to update app state: ${e.message}` });
+      }
+
+      this.refresh();
+      this.container.appendChild(ImportResultModal({ results, onClose: () => this.refresh() }));
   }
 
   async exportAllProjects() {
@@ -219,35 +321,33 @@ export class ProjectsListView {
           // Generate XML with media paths prefixed by folder
           const mediaFolder = `media/${project.name}_${project.id}`;
 
-          // We need to pass the mediaFolder to serializeProjectToXml so it generates correct paths
-          // But serializeProjectToXml signature might need update or we patch the XML.
-          // Let's assume we update serializeProjectToXml in next step.
-          // For now, I will assume a new arg 'mediaPrefix'
           const xmlString = serializeProjectToXml(project.id, this.state, mediaFolder);
 
           const mediaFiles = [];
 
           // Gather media files for this project
-          // We need to look at all steps in this project
           const setIds = project.exerciseSetIds || [];
           for (const setId of setIds) {
               const set = this.state.exerciseSets[setId];
               if (!set) continue;
               for (const stepId of set.stepIds || []) {
                   const step = this.state.exerciseSteps[stepId];
-                  if (step && step.media && step.media.path && step.media.source === 'FILE') {
-                      // Load blob
-                      try {
-                          const blob = await getMediaBlob(step.media.path);
-                          if (blob) {
-                              const filename = step.media.filename || step.media.path.split('/').pop();
-                              // Path in ZIP
-                              const zipPath = `${mediaFolder}/${filename}`;
-                              mediaFiles.push({ path: zipPath, blob });
+                  if (step && step.media && step.media.path) {
+                       // Only export if source is FILE or implicit local file
+                       const isUrl = step.media.source === 'URL' || (step.media.url && step.media.url.startsWith('http'));
+                       if (!isUrl) {
+                          try {
+                              const blob = await getMediaBlob(step.media.path);
+                              if (blob) {
+                                  const filename = step.media.filename || step.media.path.split('/').pop();
+                                  // Path in ZIP
+                                  const zipPath = `${mediaFolder}/${filename}`;
+                                  mediaFiles.push({ path: zipPath, blob });
+                              }
+                          } catch (e) {
+                              console.warn("Failed to load media for export", step.media.path);
                           }
-                      } catch (e) {
-                          console.warn("Failed to load media for export", step.media.path);
-                      }
+                       }
                   }
               }
           }

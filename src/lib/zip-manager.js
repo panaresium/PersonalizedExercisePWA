@@ -33,36 +33,40 @@ export const createExportPackage = async (projects, legacyMediaFiles) => {
 export const readImportPackage = async (zipBlob) => {
   const zip = await JSZip.loadAsync(zipBlob);
 
-  const xmlFiles = [];
+  const xmls = [];
+  const mediaFiles = [];
 
-  // Find all .xml files in the root
+  // Iterate all files in the ZIP
+  const entries = [];
   zip.forEach((relativePath, file) => {
-      if (!file.dir && relativePath.toLowerCase().endsWith('.xml') && !relativePath.includes('/')) {
-          xmlFiles.push(file);
-      }
+      entries.push({ relativePath, file });
   });
 
-  if (xmlFiles.length === 0) {
-      throw new Error("Invalid package: missing project XML files");
-  }
+  for (const { relativePath, file } of entries) {
+      if (file.dir) continue;
 
-  const xmlStrings = await Promise.all(xmlFiles.map(f => f.async("string")));
-
-  const mediaFiles = [];
-  const mediaFolder = zip.folder("media");
-  if (mediaFolder) {
-      const files = [];
-      mediaFolder.forEach((relativePath, file) => {
-          files.push({ path: relativePath, file });
-      });
-
-      for (const { path, file } of files) {
-          if (!file.dir) {
-             const blob = await file.async("blob");
-             mediaFiles.push({ filename: path, blob });
-          }
+      // Check if XML
+      if (relativePath.toLowerCase().endsWith('.xml')) {
+          const content = await file.async("string");
+          xmls.push({
+              path: relativePath,
+              content: content
+          });
+      } else {
+          // Treat everything else as potential media
+          // We load blob lazily or eagerly? Eagerly is fine for reasonable sizes.
+          // But for large ZIPs, maybe lazy? Let's stick to eager for now as per current design.
+          const blob = await file.async("blob");
+          mediaFiles.push({
+              path: relativePath,
+              blob: blob
+          });
       }
   }
 
-  return { xmls: xmlStrings, mediaFiles };
+  if (xmls.length === 0) {
+      throw new Error("Invalid package: No XML project files found.");
+  }
+
+  return { xmls, mediaFiles };
 };

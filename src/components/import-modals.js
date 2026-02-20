@@ -15,7 +15,9 @@ export const ImportPreviewModal = ({ projects, warnings, onCancel, onConfirm }) 
         });
     });
 
-    const content = createElement('div', 'import-preview-content');
+    const content = createElement('div', 'import-preview-content', {
+        style: 'max-height: 50vh; overflow-y: auto; margin-bottom: 10px;'
+    });
 
     if (warnings && warnings.length > 0) {
         const warningEl = createElement('div', 'import-warnings', { style: 'color: orange; margin-bottom: 10px; font-size: 0.9em;' });
@@ -62,12 +64,6 @@ export const ImportResultModal = ({ results, onClose }) => {
         }
     });
 
-    // We override the default Modal actions to include Copy button and just a Close button
-    // But existing Modal doesn't easily support custom footer unless we reimplement it or pass a specific structure.
-    // The Modal component in ui.js appends actions automatically.
-    // We can just add the Copy button inside the content or hijack the 'cancel' button.
-    // Let's add it to the content area at the bottom.
-
     const container = createElement('div', null, {});
     container.appendChild(content);
     container.appendChild(createElement('div', null, { style: 'margin-top: 10px; text-align: right;' }, copyBtn));
@@ -75,15 +71,10 @@ export const ImportResultModal = ({ results, onClose }) => {
     return Modal({
         title: "Import Report",
         children: [container],
-        onCancel: onClose, // No cancel, just close
+        onCancel: onClose,
         onConfirm: onClose,
         confirmLabel: "Close",
-        cancelLabel: "" // Hide cancel if possible? Modal implementation always adds it.
-        // Looking at ui.js: actions.appendChild(Button({ label: cancelLabel...
-        // If cancelLabel is empty string, it still renders a button with empty text.
-        // We can just label it "Copy" and make it copy? No, onCancel closes the modal.
-        // Let's just have "Close" as confirm and empty cancel.
-        // Actually, let's just use the Copy button inside the content.
+        cancelLabel: ""
     });
 };
 
